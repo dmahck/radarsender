@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Go tests and static analysis
+        run: |
+          go test -count=1 ./...
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: LuCI interaction tests
+        run: node tests/ui.cjs
+      - name: Build and verify all four architectures
+        run: python tools/build.py
+      - name: Disposable package runtime test
+        run: |
+          docker run --rm --network none \
+            -e RADARSENDER_FIXTURE_CONTAINER=1 \
+            -v "$PWD:/src:ro" debian:bookworm-slim \
+            sh /src/tests/package-runtime.sh
+      - name: Disposable install, rollback and uninstall test
+        run: |
+          docker run --rm --network none \
+            -e RADARSENDER_FIXTURE_CONTAINER=1 \
+            -v "$PWD:/src:ro" debian:bookworm-slim \
+            sh /src/tests/install-fixture.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radarsender-0.1.4
+          path: dist/0.1.4/
+          if-no-files-found: error
+          retention-days: 14

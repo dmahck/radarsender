@@ -1,0 +1,52 @@
+# Third-party notices
+
+The project's MIT license applies only to original RadarSender
+code. It does **not** replace the licenses of the files under `third_party/`,
+their source archives, or the bundled tcpdump executables.
+
+## Included components
+
+| Component | Version / origin | License and notice files |
+| --- | --- | --- |
+| tcpdump | 4.99.7, official upstream release archive | BSD-style; `third_party/tcpdump/tcpdump-4.99.7-LICENSE` and `upstream-NOTICES-LICENSE` |
+| libpcap | 1.11.0, official upstream release archive | BSD-style; `third_party/tcpdump/libpcap-1.11.0-LICENSE` and `upstream-NOTICES-LICENSE` |
+| musl | 1.2.5 for ARM; musl supplied by Zig for the other targets | MIT and additional component notices; `musl-arm-LICENSE` and `musl-LICENSE` |
+| Zig runtime | Zig 0.14.1 toolchain | MIT; `zig-LICENSE` |
+| GCC runtime | GCC 12 ARM toolchain | GPL with the GCC Runtime Library Exception; `gcc-runtime-LICENSE` |
+
+All license-file paths in the last three rows are relative to
+`third_party/tcpdump/`. Refer to each full notice for its applicable terms.
+GCC's runtime exception is included in the supplied file; the build uses an
+eligible GCC compilation process for the independent tcpdump/libpcap program.
+This does not relicense the GCC runtime itself.
+
+## Source and binary provenance
+
+- `third_party/tcpdump/sources.json` pins official upstream URLs, versions, and
+  SHA-256 values. The tcpdump, libpcap, and ARM musl archives are included unchanged.
+- `third_party/tcpdump/binaries.json` pins the four static executable hashes,
+  architecture baselines, toolchains, and the libpcap compatibility-patch hash.
+- `third_party/tcpdump/patches/libpcap-ethtool-enotty.patch` is applied only in a
+  temporary build tree; the upstream archives remain original.
+- `third_party/tcpdump/upstream-NOTICES-LICENSE` conservatively aggregates
+  copyright/SPDX comment notices from all C-family source files in the pinned
+  tcpdump and libpcap archives, plus their exact general license text. It is
+  deliberately not limited to the objects used by a particular architecture.
+  The archives preserve every original file and notice; the aggregation is not
+  intended to replace them.
+- The source export retains the prebuilt private executables because the normal
+  offline package builder requires them. Rebuilding them is optional; see
+  `third_party/tcpdump/README.md` and `tools/build_tcpdump.py`.
+
+## Redistribution
+
+Keep the unchanged source archives, source hashes, patch, license files,
+`upstream-NOTICES-LICENSE`, and this document with source distributions. The
+existing package builder includes every `*-LICENSE` file and `sources.json`
+under `/usr/lib/radarsender/licenses/` in binary installations, including the
+new upstream aggregation. Preserve those installed notices in redistributed
+packages. Upstream copyright holders and contributors must not be presented as
+endorsing RadarSender.
+
+The precompiled executable hashes document the supplied artifacts; reproducible
+bit-for-bit output across changing Debian package revisions is not claimed.

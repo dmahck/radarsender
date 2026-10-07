@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.go text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.cjs text eol=lf
+*.pcap -text
+*.tar.gz -text
+*.tar.xz -text
+third_party/tcpdump/bin/** -text
+third_party/** -whitespace

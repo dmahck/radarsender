@@ -1,0 +1,27 @@
+{
+  "tcpdump": "4.99.7",
+  "libpcap": "1.11.0",
+  "compiler": "Zig 0.14.1; ARM: GCC 12 + musl 1.2.5",
+  "linkage": "static musl",
+  "targets": {
+    "x64": {
+      "cpu": "x86-64 baseline",
+      "sha256": "212280d309f0cee7ba237718dacfc35d0f22e184c50638b3df2d594b0e291096"
+    },
+    "x86": {
+      "cpu": "Pentium 4",
+      "sha256": "0a7df9d743c13ac49f31bdf83c2f1d75ea52f22e2d48e86c8dc3c58d936705a7"
+    },
+    "arm64": {
+      "cpu": "ARMv8-A baseline",
+      "sha256": "3171426f61b82f258c8d91c7a387fa09a6e5dda96a588995006375286dd6d15e"
+    },
+    "arm": {
+      "cpu": "ARMv5TE soft-float",
+      "sha256": "28bef7afaa52309f8d6f16978e49849b565267208cd4a8fab230d187bce2b5bb"
+    }
+  },
+  "patches": {
+    "libpcap-ethtool-enotty.patch": "db3c38bc9fd30441b7fcc875f945a4e34fe0e7867fdd20fd41f400c82dad1c14"
+  }
+}

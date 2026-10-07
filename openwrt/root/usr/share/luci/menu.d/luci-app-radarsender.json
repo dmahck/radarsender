@@ -1,0 +1,8 @@
+{
+  "admin/services/radarsender": {
+    "title": "雷达发射（独立版）",
+    "order": 66,
+    "action": {"type": "view", "path": "radarsender/main_v0_1_2"},
+    "depends": {"acl": ["luci-app-radarsender"]}
+  }
+}

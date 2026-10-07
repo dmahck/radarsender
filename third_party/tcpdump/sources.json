@@ -1,0 +1,22 @@
+{
+  "tcpdump": {
+    "version": "4.99.7",
+    "url": "https://www.tcpdump.org/release/tcpdump-4.99.7.tar.xz",
+    "sha256": "39675dfa06fb0e99be8da5d4a1784acbaab58ae0870231d956ff7870cb99eec1"
+  },
+  "libpcap": {
+    "version": "1.11.0",
+    "url": "https://www.tcpdump.org/release/libpcap-1.11.0.tar.xz",
+    "sha256": "9237f5bae9dcf3a91823d9963ec43b7c0e2e3374ef2ad57d92c8cd39530f4723"
+  },
+  "musl": {
+    "version": "1.2.5",
+    "url": "https://musl.libc.org/releases/musl-1.2.5.tar.gz",
+    "sha256": "a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4"
+  },
+  "zig": {
+    "version": "0.14.1",
+    "url": "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz",
+    "sha256": "24aeeec8af16c381934a6cd7d95c807a8cb2cf7df9fa40d359aa884195c4716c"
+  }
+}

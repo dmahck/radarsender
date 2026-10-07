@@ -1,0 +1,27 @@
+--- a/pcap-linux.c
++++ b/pcap-linux.c
+@@ -1883,6 +1883,7 @@
+ 
+ 		switch (save_errno) {
+ 
++		case ENOTTY: /* Driver/emulator does not implement this ioctl. */
+ 		case EOPNOTSUPP:
+ 		case EINVAL:
+ 			/*
+@@ -5165,6 +5166,7 @@
+ 		close(fd);
+ 		switch (save_errno) {
+ 
++		case ENOTTY: /* Keep default host timestamps available. */
+ 		case EOPNOTSUPP:
+ 		case EINVAL:
+ 			/*
+@@ -5312,7 +5314,7 @@
+ 	eval.data = 0;
+ 	ifr.ifr_data = (caddr_t)&eval;
+ 	if (ioctl(handle->fd, SIOCETHTOOL, &ifr) == -1) {
+-		if (errno == EOPNOTSUPP || errno == EINVAL ||
++		if (errno == ENOTTY || errno == EOPNOTSUPP || errno == EINVAL ||
+ 		    (errno == EPERM && eperm_ok)) {
+ 			/*
+ 			 * OK, let's just return 0, which, in our

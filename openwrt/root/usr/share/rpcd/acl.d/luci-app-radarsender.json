@@ -1,0 +1,7 @@
+{
+  "luci-app-radarsender": {
+    "description": "Manage the independent radar sender",
+    "read": {"ubus": {"radarsender": ["status"]}},
+    "write": {"ubus": {"radarsender": ["configure", "start", "stop"]}}
+  }
+}
