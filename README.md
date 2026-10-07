@@ -1,5 +1,7 @@
 # RadarSender
 
+> ### 📢 广告｜软路由雷达交流群：[https://t.me/dogrly](https://t.me/dogrly)
+
 独立的 OpenWrt / iStoreOS 雷达发射端，当前版本 **0.1.4**。
 
 自动识别 LAN 接口，将 Ethernet PCAP 实时上传到兼容的雷达接收端。LuCI 页面只需填写连接通道，点击连接／断开。不包含雷达服务端、游戏协议解码、Windows 客户端或旧版 RouterCapture。
