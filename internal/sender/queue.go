@@ -15,6 +15,7 @@ type packetQueue struct {
 	stream                                                    *radarupload.Stream
 	mu                                                        sync.Mutex
 	queue                                                     [][]byte
+	buffers                                                   recordBuffers
 	head, count                                               int
 	bytes, byteLimit                                          int64
 	closed                                                    bool
@@ -57,13 +58,15 @@ func (m *packetQueue) fail(err error) {
 
 func (m *packetQueue) discardLocked() {
 	m.dropped.Add(uint64(m.count))
-	m.droppedBytes.Add(uint64(m.bytes))
+	// Queue byte limits include PCAP headers, but traffic counters do not.
+	m.droppedBytes.Add(uint64(m.bytes - int64(m.count*16)))
 	for m.count > 0 {
 		m.queue[m.head] = nil
 		m.head = (m.head + 1) % len(m.queue)
 		m.count--
 	}
 	m.bytes = 0
+	m.buffers.clear()
 }
 
 func (m *packetQueue) Enqueue(frame []byte, link uint32, at time.Time) bool {
@@ -84,8 +87,10 @@ func (m *packetQueue) Enqueue(frame []byte, link uint32, at time.Time) bool {
 		m.droppedBytes.Add(uint64(len(frame)))
 		return false
 	}
-	record, err := radarupload.PCAPRecord(frame, at)
+	dst := m.buffers.take(charge)
+	record, err := radarupload.PCAPRecordInto(dst, frame, at)
 	if err != nil {
+		m.buffers.put(dst)
 		m.dropped.Add(1)
 		m.droppedBytes.Add(uint64(len(frame)))
 		return false
@@ -164,5 +169,12 @@ func (m *packetQueue) sendLoop() {
 		}
 		m.sentPackets.Add(1)
 		m.sentBytes.Add(uint64(len(record) - 16))
+		// io.Pipe.Write returns only after its consumer has consumed the whole
+		// record. Recycling before Write returned could corrupt the upload.
+		m.mu.Lock()
+		if !m.closed {
+			m.buffers.put(record)
+		}
+		m.mu.Unlock()
 	}
 }

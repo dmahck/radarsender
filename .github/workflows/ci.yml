@@ -32,7 +32,18 @@ jobs:
       - name: LuCI interaction tests
         run: node tests/ui.cjs
       - name: Build and verify all four architectures
-        run: python tools/build.py
+        run: |
+          python tools/build.py
+          python -m unittest discover -s tests -p test_packages.py -v
+      - name: Actual bundled tcpdump to HTTP acceptance
+        run: |
+          mkdir -p artifacts
+          CGO_ENABLED=0 go test -c -o artifacts/sender-linux-tests ./internal/sender
+          docker run --rm --cap-add NET_RAW \
+            -e RS_TEST_REAL_TCPDUMP=/src/dist/0.1.5/x64/tcpdump \
+            -v "$PWD:/src:ro" debian:bookworm-slim \
+            /src/artifacts/sender-linux-tests \
+            -test.run '^TestBundledCaptureUploadsRealEthernet$' -test.v -test.timeout 45s
       - name: Disposable package runtime test
         run: |
           docker run --rm --network none \
@@ -45,9 +56,16 @@ jobs:
             -e RADARSENDER_FIXTURE_CONTAINER=1 \
             -v "$PWD:/src:ro" debian:bookworm-slim \
             sh /src/tests/install-fixture.sh
+      - name: Small single-architecture installer acceptance
+        run: |
+          docker run --rm --network none \
+            -e RADARSENDER_FIXTURE_CONTAINER=1 \
+            -e RADARSENDER_TEST_PACKAGE=/src/dist/0.1.5/x64/luci-app-radarsender_0.1.5_x64.run \
+            -v "$PWD:/src:ro" debian:bookworm-slim \
+            sh /src/tests/install-fixture.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: radarsender-0.1.4
-          path: dist/0.1.4/
+          name: radarsender-0.1.5
+          path: dist/0.1.5/
           if-no-files-found: error
           retention-days: 14

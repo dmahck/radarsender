@@ -2,7 +2,7 @@
 
 > ### 📢 广告｜软路由雷达交流群：[https://t.me/dogrly](https://t.me/dogrly)
 
-独立的 OpenWrt / iStoreOS 雷达发射端，当前版本 **0.1.4**。
+独立的 OpenWrt / iStoreOS 雷达发射端，当前版本 **0.1.5**。
 
 自动识别 LAN 接口，将 Ethernet PCAP 实时上传到兼容的雷达接收端。LuCI 页面只需填写连接通道，点击连接／断开。不包含雷达服务端、游戏协议解码、Windows 客户端或旧版 RouterCapture。
 
@@ -20,12 +20,12 @@
 
 ## 安装
 
-从 [Releases](https://github.com/dmahck/radarsender/releases) 下载 `luci-app-radarsender_0.1.4_universal.run`，上传到路由器 `/tmp`。也可用下文命令自行构建。
+从 [Releases](https://github.com/dmahck/radarsender/releases) 下载 `luci-app-radarsender_0.1.5_universal.run`，上传到路由器 `/tmp`。也可用下文命令自行构建。已知 CPU 架构时，内存或 `/tmp` 空间紧张的设备可下载对应的 `luci-app-radarsender_0.1.5_x64.run`、`_x86.run`、`_arm64.run` 或 `_arm.run`，运行相同的校验／预检／安装命令；安装文件和功能相同，仅不携带其他架构。
 
 ```sh
-sh /tmp/luci-app-radarsender_0.1.4_universal.run --verify
-sh /tmp/luci-app-radarsender_0.1.4_universal.run --check
-sh /tmp/luci-app-radarsender_0.1.4_universal.run
+sh /tmp/luci-app-radarsender_0.1.5_universal.run --verify
+sh /tmp/luci-app-radarsender_0.1.5_universal.run --check
+sh /tmp/luci-app-radarsender_0.1.5_universal.run
 ```
 
 安装前提：现有 **LuCI、rpcd、procd、jsonfilter、ubus**，Linux 内核支持包捕获，具备抓包权限。MIPS 不在支持范围。安装器不联网下载依赖；这是独立 portable 安装包，不登记为 opkg/apk 包。
@@ -47,7 +47,7 @@ node tests/ui.cjs
 python tools/build.py
 ```
 
-输出位于 `dist/0.1.4/`，包括通用 `.run`／`.tar.gz`、各架构包、`manifest.json` 和 `SHA256SUMS`。构建验证 tcpdump 的 SHA-256、补丁清单及所有输出的静态 ELF 架构，不导入旧工程。
+输出位于 `dist/0.1.5/`，包括通用 `.run`／`.tar.gz`、各架构 `.run`／`.tar.gz`、`manifest.json` 和 `SHA256SUMS`。构建验证 tcpdump 的 SHA-256、补丁清单及所有输出的静态 ELF 架构，不导入旧工程。
 
 重编译第三方 tcpdump 需要 Docker 和构建环境网络：
 
@@ -89,7 +89,8 @@ sh /usr/lib/radarsender/install.sh --uninstall
 - [完整运行说明与限制](docs/operation.md)
 - [贡献与隔离测试](CONTRIBUTING.md)
 - [安全问题报告](SECURITY.md)
-- [0.1.4 更新说明](CHANGELOG.md)
+- [0.1.5 更新说明](CHANGELOG.md)
+- [性能优化与丢包边界](docs/performance.md)
 - [第三方来源与许可](THIRD_PARTY_NOTICES.md)
 
 Windows 常规 Go 测试不会执行 Linux 专用采集／进程测试。CI 在 Linux 运行单元、并发检查、UI 和四架构打包，并在一次性容器验证安装／回滚／卸载。交叉编译和容器测试不等于所有目标路由器实机验收；ARM／ARM64 实时抓包仍需对应原生硬件验证。

@@ -1,14 +1,21 @@
 package sender
 
 import (
+	"bufio"
 	"encoding/binary"
 	"io"
 	"radarsender/internal/radarupload"
 	"time"
 )
 
-// Only one frame is buffered. The caller closes r to interrupt a blocked read.
+const pcapReadBufferSize = 32 * 1024
+
+// One frame scratch buffer and bounded read-ahead are used. The caller closes
+// the source reader to interrupt a blocked read.
 func readPCAP(r io.Reader, ready func(), packet func([]byte, time.Time)) error {
+	// Read ahead consumes only bytes already returned by the source; it does not
+	// wait to fill the buffer before making a header or first packet available.
+	r = bufio.NewReaderSize(r, pcapReadBufferSize)
 	h := make([]byte, 24)
 	if _, err := io.ReadFull(r, h); err != nil {
 		return radarupload.ErrCapture

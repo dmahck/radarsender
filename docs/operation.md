@@ -1,10 +1,14 @@
-# RadarSender 0.1.4
+# RadarSender 0.1.5
 
 独立软路由雷达发射端。只采集并发送 Ethernet PCAP，不依赖旧版 RouterCapture 配置、SMB、存盘、设备识别或握手组件。
 
 原项目及交付包保持原样。独立程序使用 radarsender 服务、/etc/radarsender 配置和 /var/run/radarsender/control.sock。
 
-## 0.1.4 更新
+## 0.1.5 更新
+
+逐包过滤、内存复用和管道读优化，新增小型单架构安装器。完整说明见 [性能优化与丢包边界](performance.md)。运行策略、通道和队列上限保持不变。
+
+## 0.1.4 更新（历史）
 
 - 明确延迟优先策略：宁愿多发，不等待游戏识别，不采用确认后才放行的筛选方案。
 - 增加首个未知协议包立即入队、在第二包或上传结束前到达 HTTP 接收端的回归测试。
@@ -21,12 +25,12 @@
 
 ## 安装
 
-推荐 `dist/0.1.4/luci-app-radarsender_0.1.4_universal.run`，支持 ARM、ARM64、x86、x64。上传到 iStore 的手动安装，或在路由器执行：
+推荐 `dist/0.1.5/luci-app-radarsender_0.1.5_universal.run`，支持 ARM、ARM64、x86、x64。上传到 iStore 的手动安装，或在路由器执行：
 
 ```sh
-sh /tmp/luci-app-radarsender_0.1.4_universal.run --verify
-sh /tmp/luci-app-radarsender_0.1.4_universal.run --check
-sh /tmp/luci-app-radarsender_0.1.4_universal.run
+sh /tmp/luci-app-radarsender_0.1.5_universal.run --verify
+sh /tmp/luci-app-radarsender_0.1.5_universal.run --check
+sh /tmp/luci-app-radarsender_0.1.5_universal.run
 ```
 
 需要现有 LuCI、rpcd、procd、jsonfilter 和 ubus。已内置静态 tcpdump 4.99.7 与 libpcap 1.11.0，不需要通过 opkg/apk 安装 tcpdump 或 libpcap，也不需要共享库、CIFS 或 firewall4。安装器不会联网下载依赖。MIPS 不在本版支持范围。

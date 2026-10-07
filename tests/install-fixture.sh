@@ -2,7 +2,7 @@
 # Disposable-container test doubles for OpenWrt init/rpcd, not real firmware.
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || { echo 'Disposable test container required.'; exit 1; }
-PACKAGE=/src/dist/0.1.4/luci-app-radarsender_0.1.4_universal.run
+PACKAGE=${RADARSENDER_TEST_PACKAGE:-/src/dist/0.1.5/luci-app-radarsender_0.1.5_universal.run}
 mkdir -p /etc/init.d /etc/rc.d /usr/share/luci/menu.d /usr/share/rpcd/acl.d /www/luci-static/resources /usr/libexec/rpcd
 printf 'fixture-only\n' >/etc/openwrt_release
 printf 'OLD-SENDER-UNTOUCHED\n' >/usr/sbin/routercapture
@@ -46,7 +46,7 @@ chmod 755 /usr/bin/jsonfilter /usr/bin/ubus /etc/init.d/rpcd /etc/rc.common
 if command -v tcpdump >/dev/null 2>&1; then echo 'FAIL: fixture must start without system tcpdump'; exit 1; fi
 sh "$PACKAGE" --check
 sh "$PACKAGE"
-[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.4"}' ]
+[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.5"}' ]
 [ -f /usr/lib/radarsender/installed ]
 test -L /usr/libexec/rpcd/radarsender
 /usr/sbin/radarsender call status </dev/null | grep -q '"ok":true'
@@ -54,6 +54,9 @@ test -L /usr/libexec/rpcd/radarsender
 /usr/lib/radarsender/tcpdump --version | grep -q 'tcpdump version 4.99.7'
 [ -s /usr/lib/radarsender/licenses/tcpdump-4.99.7-LICENSE ]
 [ -s /usr/lib/radarsender/licenses/libpcap-1.11.0-LICENSE ]
+[ -s /usr/lib/radarsender/licenses/radarsender-LICENSE ]
+[ -s /usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE ]
+[ -s /usr/lib/radarsender/licenses/THIRD_PARTY_NOTICES.md ]
 [ -s /usr/lib/radarsender/licenses/musl-LICENSE ]
 [ -s /usr/lib/radarsender/licenses/zig-LICENSE ]
 [ "$(stat -c %a /usr/lib/radarsender/licenses/tcpdump-4.99.7-LICENSE)" = 644 ]
@@ -76,10 +79,13 @@ before=$(sha256sum /www/luci-static/resources/view/radarsender/main_v0_1_2.js)
 # Rollback must restore private binaries as well as the page.
 printf '\nprevious-private-binary\n' >>/usr/lib/radarsender/tcpdump
 previous_capture=$(sha256sum /usr/lib/radarsender/tcpdump)
+printf '\nprevious-license-marker\n' >>/usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE
+previous_license=$(sha256sum /usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE)
 touch /tmp/fail-rpcd-once
 if sh "$PACKAGE"; then echo 'FAIL: injected restart failure ignored'; exit 1; fi
 [ "$before" = "$(sha256sum /www/luci-static/resources/view/radarsender/main_v0_1_2.js)" ]
 [ "$previous_capture" = "$(sha256sum /usr/lib/radarsender/tcpdump)" ]
+[ "$previous_license" = "$(sha256sum /usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE)" ]
 [ "$system_capture" = "$(sha256sum /usr/sbin/tcpdump)" ]
 [ ! -d /tmp/radarsender-install.lock ]
 # Preserve an intentionally stopped/disabled standalone installation.
@@ -92,6 +98,9 @@ sh /usr/lib/radarsender/install.sh --uninstall
 [ ! -e /usr/sbin/radarsender ]
 [ ! -e /usr/lib/radarsender/tcpdump ]
 [ ! -e /usr/lib/radarsender/licenses/tcpdump-4.99.7-LICENSE ]
+[ ! -e /usr/lib/radarsender/licenses/radarsender-LICENSE ]
+[ ! -e /usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE ]
+[ ! -e /usr/lib/radarsender/licenses/THIRD_PARTY_NOTICES.md ]
 [ "$system_capture" = "$(sha256sum /usr/sbin/tcpdump)" ]
 [ -f /etc/radarsender/retained-test-marker ]
 [ "$(cat /usr/sbin/routercapture)" = OLD-SENDER-UNTOUCHED ]
@@ -108,7 +117,7 @@ if [ -n "${RADARSENDER_PREVIOUS_PACKAGE:-}" ]; then
     [ ! -e /usr/lib/radarsender/tcpdump ]
     [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.2"}' ]
     sh "$PACKAGE"
-    [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.4"}' ]
+    [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.5"}' ]
     /usr/lib/radarsender/tcpdump --version | grep -q 'tcpdump version 4.99.7'
     grep -q main_v0_1_2 /usr/share/luci/menu.d/luci-app-radarsender.json
     /usr/sbin/radarsender call status </dev/null | grep -q '"has_channel":true'
@@ -119,5 +128,5 @@ if [ -n "${RADARSENDER_PREVIOUS_PACKAGE:-}" ]; then
     [ ! -e /www/luci-static/resources/view/radarsender/main_v0_1_2.js ]
     [ ! -e /usr/lib/radarsender/tcpdump ]
     [ "$system_capture" = "$(sha256sum /usr/sbin/tcpdump)" ]
-    echo 'PASS 0.1.2 to 0.1.4 upgrade: rollback restores old binary and removes new private tcpdump; successful upgrade preserves channel and system tcpdump'
+    echo 'PASS 0.1.2 to 0.1.5 upgrade: rollback restores old binary and removes new private tcpdump; successful upgrade preserves channel and system tcpdump'
 fi

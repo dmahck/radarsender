@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 OUT = ROOT / "dist" / VERSION
 VENDOR = ROOT / "third_party" / "tcpdump"
 TARGETS = {
@@ -92,9 +92,12 @@ def main():
         assert digest(tcpdump)==vendor_manifest["targets"][name]["sha256"], "Bundled tcpdump checksum mismatch"
         check_static_elf(tcpdump,elfclass,machine)
         (folder/"tcpdump").write_bytes(tcpdump)
+        os.chmod(folder/"tcpdump", 0o755)
         entry={f"targets/{name}/radarsender":(data,0o755),f"targets/{name}/tcpdump":(tcpdump,0o755)}
         universal.update(entry)
-        (folder/f"radarsender-{VERSION}-{name}.tar.gz").write_bytes(archive({**common,**entry}))
+        target_payload = archive({**common,**entry})
+        (folder/f"radarsender-{VERSION}-{name}.tar.gz").write_bytes(target_payload)
+        (folder/f"luci-app-radarsender_{VERSION}_{name}.run").write_bytes(run_wrapper(target_payload))
     payload=archive(universal)
     base=f"luci-app-radarsender_{VERSION}_universal"
     (OUT/(base+".tar.gz")).write_bytes(payload)
