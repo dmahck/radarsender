@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6
+
+- 新增第五架构 `mipsel`，面向 MT7621：Go `mipsle`／软件浮点，静态 tcpdump 使用 MIPS32r2 little-endian／软件浮点基线；提供独立小型 `.run` 与通用包。
+- 安装器支持常见 `mips`／`mipsel`／`mipsle` 标签，但必须从 BusyBox 或实际 shell ELF 确认 ELF32 little-endian MIPS；拒绝 big-endian、MIPS64 或错误用户态架构，再以随包程序自检确认可运行。
+- 新增只读 `install.sh --print-target` 诊断与合成 ELF 架构选择测试，不要求 root，不操作路由器安装目录。
+- 保留 0.1.5 的低开销逐包处理、完整帧、首包不等待、有界队列和离线丢弃策略；不新增游戏识别、设备选择或 BPF 过滤配置。
+- 文档补充 MT7621 捕获范围建议与验收边界：避免大量无关流量，交叉编译／QEMU 不替代实机吞吐和丢包测试。
+
 ## 0.1.5
 
 - 自身连接过滤改为每帧一次解析和有界 tuple/IP pair 索引，不再逐帧遍历最多 128 条历史连接；保留 IPv4/IPv6、VLAN、分片及双向排除行为。

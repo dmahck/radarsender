@@ -9,6 +9,7 @@ go test -count=1 ./...
 go vet ./...
 node tests/ui.cjs
 python tools/build.py
+python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 Linux 上另运行 `go test -race -count=1 ./...`，需要 C 编译器。Windows 不执行 Linux 专用测试。
@@ -32,6 +33,19 @@ docker run --rm --network none \
 ```
 
 实际 tcpdump 联测由 `RS_TEST_REAL_TCPDUMP` 启用，测试通过本地 HTTP 接收端确认最终包数；需要 Linux Ethernet 接口与抓包权限。`tests/bundled-tcpdump.sh` 的非原生架构离线执行需要 QEMU/binfmt，原生实时抓包需要 `ping`。完整前提见 [运行说明](docs/operation.md)。
+
+CI 的 MIPS 测试使用显式 `qemu-mipsel`，无需注册 binfmt。在可丢弃 Linux runner 安装 `qemu-user` 后：
+
+```sh
+mkdir -p artifacts
+CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/sender-mipsel-tests ./internal/sender
+CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/radarupload-mipsel-tests ./internal/radarupload
+sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.6/mipsel \
+  --testbin artifacts/sender-mipsel-tests \
+  --upload-testbin artifacts/radarupload-mipsel-tests
+```
+
+该测试仅用临时目录、合成 PCAP 和 loopback；检查两套库测试、配置修复、锁、权限与停止，不执行实机抓包。MT7621 实机吞吐和丢包仍需对应设备验收。
 
 ## 必须保持的行为
 

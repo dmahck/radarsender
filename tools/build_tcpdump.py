@@ -44,6 +44,8 @@ def prepare_sources(sources, targets):
         required.add("musl")
     if set(targets) & ZIG_TARGETS:
         required.add("zig")
+    if "mipsel" in targets:
+        required.add("openwrt-toolchain")
     DOWNLOADS.mkdir(parents=True, exist_ok=True)
     for component, spec in sources.items():
         if component not in required:
@@ -66,7 +68,7 @@ def prepare_sources(sources, targets):
                     if partial.exists():
                         partial.unlink()
         verify_archive(path, spec["sha256"])
-        if component != "zig":
+        if component not in ("zig", "openwrt-toolchain"):
             vendored.parent.mkdir(exist_ok=True)
             if vendored.is_file():
                 verify_archive(vendored, spec["sha256"])
@@ -104,15 +106,17 @@ def main():
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "tcpdump").write_bytes(data)
         os.chmod(dest / "tcpdump", 0o755)
-    # The existing GCC notice covers both GCC 12 cross targets. Never replace
-    # it as a side effect of a one-target rebuild; export current notices to
-    # artifacts for review if the Debian packaging notice changes.
-    if set(targets) & GCC_TARGETS:
+    # Preserve the ARM GCC 12 notice; MIPSEL has its own GCC 13 runtime notice.
+    if "arm" in targets:
         if not (VENDOR / "gcc-runtime-LICENSE").is_file():
             raise RuntimeError("Missing GCC runtime license")
+    if "mipsel" in targets:
+        if not (VENDOR / "gcc-mipsel-LICENSE").is_file():
+            raise RuntimeError("Missing MIPSEL GCC runtime license")
     compiler = "Zig " + sources["zig"]["version"] + "; ARM: GCC 12 + musl " + sources["musl"]["version"]
     if (VENDOR / "bin" / "mipsel" / "tcpdump").is_file():
-        compiler += "; MIPSEL: GCC 12 + musl " + sources["musl"]["version"]
+        toolchain = sources["openwrt-toolchain"]
+        compiler += "; MIPSEL: OpenWrt " + toolchain["version"] + " / " + toolchain["compiler"] + " + musl " + sources["musl"]["version"]
     manifest={"tcpdump":sources["tcpdump"]["version"],"libpcap":sources["libpcap"]["version"],"compiler":compiler,"linkage":"static musl","targets":{}}
     manifest["patches"]={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((VENDOR/"patches").glob("*.patch"))}
     for target, cpu in TARGET_CPUS.items():

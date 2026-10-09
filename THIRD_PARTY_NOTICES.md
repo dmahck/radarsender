@@ -12,7 +12,7 @@ their source archives, or the bundled tcpdump executables.
 | libpcap | 1.11.0, official upstream release archive | BSD-style; `third_party/tcpdump/libpcap-1.11.0-LICENSE` and `upstream-NOTICES-LICENSE` |
 | musl | 1.2.5 for ARM and MIPSEL; musl supplied by Zig for the other targets | MIT and additional component notices; `musl-arm-LICENSE` and `musl-LICENSE` |
 | Zig runtime | Zig 0.14.1 toolchain | MIT; `zig-LICENSE` |
-| GCC runtime | GCC 12 ARM and MIPSEL toolchains | GPL with the GCC Runtime Library Exception; `gcc-runtime-LICENSE` |
+| GCC runtime | GCC 12 ARM; OpenWrt 24.10.0 GCC 13.3.0 MIPSEL soft-float | GPL with the GCC Runtime Library Exception; `gcc-runtime-LICENSE` and `gcc-mipsel-LICENSE` |
 
 All license-file paths in the last three rows are relative to
 `third_party/tcpdump/`. Refer to each full notice for its applicable terms.
@@ -21,13 +21,21 @@ eligible GCC compilation process for the independent tcpdump/libpcap program.
 This does not relicense the GCC runtime itself.
 The historical `musl-arm-LICENSE` filename contains the full upstream
 musl 1.2.5 COPYRIGHT; it also covers MIPSEL built from the identical pinned
-archive. MIPSEL subset builds preserve the existing GCC notice and export
-the current Debian compiler notice separately into build artifacts for review.
+archive. MIPSEL subset builds preserve ARM's existing GCC notice and use
+the separate GCC 13.3.0 runtime notice. The OpenWrt compiler archive itself
+is downloaded only for builds, not copied into source distributions or
+installation packages.
 
 ## Source and binary provenance
 
 - `third_party/tcpdump/sources.json` pins official upstream URLs, versions, and
   SHA-256 values. The tcpdump, libpcap, and ARM/MIPSEL musl archives are included unchanged.
+- MIPSEL uses the fixed OpenWrt 24.10.0 ramips/mt7621 x86_64-host toolchain.
+  Its official archive URL/hash, GNU GCC 13.3.0 source URL/hash, and the
+  matching OpenWrt toolchain recipes/patches are recorded in `sources.json`.
+  The installed libc is built from our unchanged musl archive, rather than
+  copied from the OpenWrt sysroot. GCC's runtime is compiled by GCC with its
+  applicable Runtime Library Exception; keep `gcc-mipsel-LICENSE` with it.
 - `third_party/tcpdump/binaries.json` pins the validated static executable hashes,
   architecture baselines, toolchains, and the libpcap compatibility-patch hash.
 - `third_party/tcpdump/patches/libpcap-ethtool-enotty.patch` is applied only in a

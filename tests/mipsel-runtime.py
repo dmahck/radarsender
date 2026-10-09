@@ -183,6 +183,9 @@ def main():
     for path in (binary, capture, *testbins):
         static_mipsel(path)
     env = {key: value for key, value in os.environ.items() if not key.startswith("RS_TEST_")}
+    # The default emulator CPU can have an FPU. 24Kc is MIPS32r2 without one;
+    # a hard-float instruction must fail instead of being silently emulated.
+    env["QEMU_CPU"] = "24Kc"
     require(json.loads(run([qemu, binary, "version"], env=env)).get("version") == args.version, "MIPS CLI version mismatch")
     versions = run([qemu, capture, "--version"], env=env)
     require("tcpdump version 4.99.7" in versions and "libpcap version 1.11.0" in versions, f"bundled capture versions mismatch: {versions}")

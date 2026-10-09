@@ -46,7 +46,7 @@ class BuiltPackages(unittest.TestCase):
                     for line in files["SHA256SUMS"].decode().splitlines():
                         expected, name = line.split("  ", 1)
                         self.assertEqual(hashlib.sha256(files[name]).hexdigest(), expected, name)
-                    for name in ("radarsender-LICENSE", "upstream-NOTICES-LICENSE", "THIRD_PARTY_NOTICES.md", "tcpdump-4.99.7-LICENSE", "libpcap-1.11.0-LICENSE"):
+                    for name in ("radarsender-LICENSE", "upstream-NOTICES-LICENSE", "THIRD_PARTY_NOTICES.md", "tcpdump-4.99.7-LICENSE", "libpcap-1.11.0-LICENSE", "musl-arm-LICENSE", "gcc-runtime-LICENSE", "gcc-mipsel-LICENSE"):
                         self.assertTrue(files["common/usr/lib/radarsender/licenses/" + name])
                     targets = {m.name.split("/")[1] for m in members if m.name.startswith("targets/")}
                     self.assertEqual(targets, set(build.TARGETS) if target == "universal" else {target})

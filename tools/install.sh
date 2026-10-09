@@ -60,6 +60,7 @@ FILES='/usr/sbin/radarsender
 /usr/lib/radarsender/licenses/musl-LICENSE
 /usr/lib/radarsender/licenses/musl-arm-LICENSE
 /usr/lib/radarsender/licenses/gcc-runtime-LICENSE
+/usr/lib/radarsender/licenses/gcc-mipsel-LICENSE
 /usr/lib/radarsender/licenses/zig-LICENSE
 /usr/lib/radarsender/licenses/radarsender-LICENSE
 /usr/lib/radarsender/licenses/upstream-NOTICES-LICENSE

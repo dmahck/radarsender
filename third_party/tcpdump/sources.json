@@ -14,6 +14,17 @@
     "url": "https://musl.libc.org/releases/musl-1.2.5.tar.gz",
     "sha256": "a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4"
   },
+  "openwrt-toolchain": {
+    "version": "24.10.0",
+    "compiler": "GCC 13.3.0",
+    "target": "mipsel_24kc / ramips/mt7621 / musl / soft-float",
+    "url": "https://downloads.openwrt.org/releases/24.10.0/targets/ramips/mt7621/openwrt-toolchain-24.10.0-ramips-mt7621_gcc-13.3.0_musl.Linux-x86_64.tar.zst",
+    "sha256": "4db9eab44279ef9c7111ebf5050041846488395f458b9ca9ab18ad1989ab08dd",
+    "source_url": "https://github.com/openwrt/openwrt/tree/v24.10.0/toolchain",
+    "gcc_source_url": "https://ftp.gnu.org/gnu/gcc/gcc-13.3.0/gcc-13.3.0.tar.xz",
+    "gcc_source_sha256": "0845e9621c9543a13f484e94584a49ffc0129970e9914624235fc1d061a0c083",
+    "license_file": "gcc-mipsel-LICENSE"
+  },
   "zig": {
     "version": "0.14.1",
     "url": "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz",

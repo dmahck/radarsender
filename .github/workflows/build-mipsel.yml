@@ -23,6 +23,8 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends qemu-user
       - name: Verify private capture under QEMU
         run: |
+          export QEMU_CPU=24Kc
+          test "$(qemu-mipsel artifacts/tcpdump-build/mipsel-soft-float-check)" = '3.12'
           qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump --version
           qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump --help 2>&1 | grep -q -- --immediate-mode
           qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump -nn --immediate-mode \
