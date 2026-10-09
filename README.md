@@ -84,7 +84,7 @@ sh /usr/lib/radarsender/install.sh --print-target
 sh /usr/lib/radarsender/install.sh --uninstall
 ```
 
-重启服务会断开发送。卸载保留 `/etc/radarsender/config.json`，其中含连接通道，请勿上传或公开。升级失败会尝试回滚独立版文件，不替换系统 tcpdump。
+重启服务会断开发送。卸载保留 `/etc/radarsender/config.json`，其中含连接通道，请勿上传或公开。portable 安装器升级失败会尝试回滚独立版文件；IPK 由 opkg 管理，不提供此事务保证。两种安装方式均不替换系统 tcpdump。
 
 `--print-target` 只读显示安装架构，不要求 root，也不启动、停止或修改服务；MIPS 识别需要 `od`。
 

@@ -31,6 +31,7 @@ original_sender=$(sha256sum /usr/sbin/routercapture)
 cat >/usr/bin/jsonfilter <<'EOF'
 #!/bin/sh
 text=$2; field=${4#@.}
+[ "$field" != state ] || [ ! -f /tmp/ipk-fixture-report-sending ] || { echo streaming; exit 0; }
 printf '%s' "$text" | sed -n "s/.*\"$field\":\"\{0,1\}\([^\",}]*\).*/\1/p"
 EOF
 cat >/usr/bin/ubus <<'EOF'
@@ -106,7 +107,7 @@ rm -f /usr/lib/radarsender/installed /usr/sbin/radarsender /usr/lib/radarsender/
 rmdir /usr/lib/radarsender
 
 opkg install "$NATIVE"
-opkg status "$PACKAGE_NAME" | grep -q '^Status: install ok installed$'
+opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 opkg status "$PACKAGE_NAME" | grep -q "^Version: $VERSION\$"
 opkg files "$PACKAGE_NAME" | tee /tmp/ipk-fixture-files
 for file in /usr/sbin/radarsender /usr/lib/radarsender/tcpdump /etc/init.d/radarsender \
@@ -127,12 +128,25 @@ for file in /usr/sbin/radarsender /usr/lib/radarsender/tcpdump /etc/init.d/radar
 printf 'config-retained\n' >/etc/radarsender/retained-ipk-test-marker
 config_before=$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)
 
-# Actual opkg reinstall uses its upgrade path and PKG_UPGRADE environment;
-# disabling first must not let prerm/postinst accidentally enable on replacement.
+# Seed only the installed revision metadata as an earlier revision, leaving the
+# IPK and all payload files unchanged. This exercises opkg's genuine version
+# upgrade path and PKG_UPGRADE, not --force-reinstall (which removes/reinstalls).
+# It proves hook lifecycle behavior, not cross-version binary/config migration.
 /etc/init.d/radarsender disable
+sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-0/;}" /usr/lib/opkg/status
+opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-0$'
 : >/tmp/ipk-fixture-service-actions
-opkg --force-reinstall install "$NATIVE"
-opkg status "$PACKAGE_NAME" | grep -q '^Status: install ok installed$'
+# Report a synthetic active session at the state boundary; no capture, channel,
+# external receiver or real user credentials are needed for this refusal test.
+touch /tmp/ipk-fixture-report-sending
+if opkg install "$NATIVE" >/tmp/ipk-fixture-active-reject.log 2>&1; then fail 'active upgrade was accepted'; fi
+cat /tmp/ipk-fixture-active-reject.log
+grep -q 'Disconnect RadarSender before upgrading' /tmp/ipk-fixture-active-reject.log
+if grep -Eq '^(stop|enable|disable)$' /tmp/ipk-fixture-service-actions; then fail 'active-upgrade refusal modified service'; fi
+rm /tmp/ipk-fixture-report-sending
+opkg install "$NATIVE"
+opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
+opkg status "$PACKAGE_NAME" | grep -q "^Version: $VERSION\$"
 if /etc/init.d/radarsender enabled; then fail 'upgrade changed disabled enable state'; fi
 if grep -Eq '^(enable|disable)$' /tmp/ipk-fixture-service-actions; then fail 'upgrade hooks changed enable state'; fi
 /etc/init.d/radarsender running
@@ -140,7 +154,7 @@ if grep -Eq '^(enable|disable)$' /tmp/ipk-fixture-service-actions; then fail 'up
 [ "$config_before" = "$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)" ] || fail 'upgrade changed private configuration'
 
 opkg remove "$PACKAGE_NAME"
-if opkg status "$PACKAGE_NAME" | grep -q '^Status: install ok installed$'; then fail 'remove left installed status'; fi
+if opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install .* installed$'; then fail 'remove left installed status'; fi
 for file in /usr/sbin/radarsender /usr/lib/radarsender/tcpdump /etc/init.d/radarsender /usr/libexec/rpcd/radarsender \
     /www/luci-static/resources/view/radarsender/main_v0_1_2.js /usr/lib/radarsender/licenses/tcpdump-4.99.7-LICENSE; do
     [ ! -e "$file" ] && [ ! -L "$file" ] || fail "package-owned file retained after remove: $file"
@@ -163,7 +177,7 @@ EOF
 seed_dependencies "$offline/usr/lib/opkg/status"
 host_actions=$(sha256sum /tmp/ipk-fixture-service-actions /tmp/ipk-fixture-rpcd-actions)
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" install "$FOREIGN"
-"$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -q '^Status: install ok installed$'
+"$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -q '^Architecture: mipsel_24kc$'
 for file in usr/sbin/radarsender usr/lib/radarsender/tcpdump; do
     [ "$(sha256sum "$offline/$file" | awk '{print $1}')" = "$(sha256sum "/src/dist/0.1.6/mipsel/$(basename "$file")" | awk '{print $1}')" ] || fail "offline ELF hash mismatch: $file"

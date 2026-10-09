@@ -3,6 +3,10 @@
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || { echo 'Disposable test container required.' >&2; exit 1; }
 [ "$(id -u)" = 0 ] || { echo 'Container root required.' >&2; exit 1; }
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq --no-install-recommends ca-certificates curl zstd cmake gcc make \
+    pkg-config libjson-c-dev zlib1g-dev autoconf
 for command in curl sha256sum tar zstd cmake make gcc pkg-config; do
     command -v "$command" >/dev/null 2>&1 || { echo "Missing build prerequisite: $command" >&2; exit 1; }
 done
