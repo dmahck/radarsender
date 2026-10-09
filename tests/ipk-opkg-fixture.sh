@@ -158,7 +158,8 @@ done
 # Foreign-architecture staging is a real opkg offline-root install, not a tar
 # extraction. No foreign executable or maintainer hook may touch the host.
 offline=$(mktemp -d /tmp/radarsender-ipk-offline.XXXXXX)
-mkdir -p "$offline/etc/opkg" "$offline/usr/lib/opkg/info"
+# opkg places its lock beneath offline-root/tmp even though hooks are deferred.
+mkdir -p "$offline/etc/opkg" "$offline/usr/lib/opkg/info" "$offline/tmp"
 cat >"$offline/etc/opkg.conf" <<'EOF'
 dest root /
 lists_dir ext /var/opkg-lists
