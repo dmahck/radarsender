@@ -14,7 +14,7 @@ spec = importlib.util.spec_from_file_location("radarsender_portable_build", ROOT
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 VERSION = "0.1.6"
-PACKAGE_VERSION = VERSION + "-1"
+PACKAGE_VERSION = VERSION + "-2"
 PACKAGE = "luci-app-radarsender"
 BUNDLE_BASE = Path(os.environ.get("RADARSENDER_IPK_BUNDLE_BASE", ROOT / "dist" / VERSION))
 OUT = ROOT / "dist" / "ipk" / PACKAGE_VERSION
@@ -84,13 +84,13 @@ def bundle_entries(base, target):
 
 
 def scripts(target, entries):
-    required = "mipsel" if target == "mipsel" else "x64"
-    functions = (ROOT / "tools/install.sh").read_text(encoding="utf-8").split("DIR=$(CDPATH", 1)[0]
-    functions = functions.split("# Read-only diagnosis", 1)[0]
-    preinst = functions + f'''
+    # opkg validates the package's Architecture before invoking these hooks.
+    # Do not embed portable ELF detection: minimal OpenWrt may lack od entirely.
+    preinst = f'''#!/bin/sh
+set -eu
+fail() {{ echo "ERROR: $*" >&2; exit 1; }}
 [ -z "${{IPKG_INSTROOT:-}}" ] || exit 0
 [ ! -e /usr/lib/radarsender/installed ] || fail 'Portable RadarSender is installed. Disconnect and uninstall it first; configuration will be retained.'
-[ "$(select_target "$(uname -m)")" = '{required}' ] || fail 'Wrong IPK architecture.'
 for cmd in jsonfilter ubus; do command -v "$cmd" >/dev/null 2>&1 || fail "Missing dependency: $cmd"; done
 [ -x /etc/init.d/rpcd ] && [ -d /www/luci-static/resources ] || fail 'LuCI and rpcd are required.'
 owned=/usr/lib/opkg/info/{PACKAGE}.list

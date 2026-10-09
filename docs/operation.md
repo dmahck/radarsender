@@ -29,7 +29,7 @@
 
 ## 安装
 
-MT7621 的 `opkg` 固件若使用 LuCI 软件包管理器，请上传 `luci-app-radarsender_0.1.6-1_mipsel_24kc.ipk`。这是实际登记到 opkg 的 IPK，卸载执行 `opkg remove luci-app-radarsender`，保留私有配置。不能与 portable 安装同时管理同一组文件；先断开并卸载 portable，再安装 IPK。IPK hook 失败由 opkg 报告未配置状态，不具备 portable 事务回滚保证；不适用于 `apk` 固件。
+MT7621 的 `opkg` 固件若使用 LuCI 软件包管理器，请上传 `luci-app-radarsender_0.1.6-2_mipsel_24kc.ipk`。此修订不依赖 `od`，架构由 opkg 校验；不要使用 `--force-architecture`。这是实际登记到 opkg 的 IPK，卸载执行 `opkg remove luci-app-radarsender`，保留私有配置。不能与 portable 安装同时管理同一组文件；先断开并卸载 portable，再安装 IPK。IPK hook 失败由 opkg 报告未配置状态，不具备 portable 事务回滚保证；不适用于 `apk` 固件。
 
 终端安装可用 `dist/0.1.6/luci-app-radarsender_0.1.6_universal.run`，支持 ARM、ARM64、x86、x64、MIPS32 little-endian（`mipsel`）。`.run` **不能通过 opkg 软件包上传页面安装**，不要改名为 `.ipk`；上传到 `/tmp` 后在路由器终端执行：
 
@@ -39,7 +39,7 @@ sh /tmp/luci-app-radarsender_0.1.6_universal.run --check
 sh /tmp/luci-app-radarsender_0.1.6_universal.run
 ```
 
-需要现有 LuCI、rpcd、procd、jsonfilter 和 ubus。已内置静态 tcpdump 4.99.7 与 libpcap 1.11.0，不需要通过 opkg/apk 安装 tcpdump 或 libpcap，也不需要共享库、CIFS 或 firewall4。安装器不会联网下载依赖。MIPS 仅支持 ELF32 little-endian 用户态，面向 MT7621；不支持 big-endian MIPS 或 MIPS64，架构识别还需要 `od`。
+需要现有 LuCI、rpcd、procd、jsonfilter 和 ubus。已内置静态 tcpdump 4.99.7 与 libpcap 1.11.0，不需要通过 opkg/apk 安装 tcpdump 或 libpcap，也不需要共享库、CIFS 或 firewall4。安装器不会联网下载依赖。MIPS 仅支持 ELF32 little-endian 用户态，面向 MT7621；不支持 big-endian MIPS 或 MIPS64，portable 安装器的架构识别还需要 `od`；IPK 不需要。
 
 空间紧张的 MT7621 设备可选择 `luci-app-radarsender_0.1.6_mipsel.run`，其他设备可选择对应 `_arm.run`、`_arm64.run`、`_x86.run` 或 `_x64.run`；单架构包与通用包采用同样的校验、预检和安装流程，缺少本机架构时在修改文件前拒绝安装。
 

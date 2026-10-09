@@ -22,9 +22,11 @@
 
 ### MT7621：LuCI 软件包管理器安装
 
-小米 Router 3G／MT7621、OpenWrt／ImmortalWrt 24.10 的 `opkg` 固件可选择 **`luci-app-radarsender_0.1.6-1_mipsel_24kc.ipk`**。在 **系统 → 软件包 → 上传软件包** 上传这个真实 `.ipk`，不要上传 `.run` 或把它改名为 `.ipk`。安装后刷新 LuCI，进入 **服务 → 雷达发射（独立版）**。需要现有 LuCI、rpcd、procd、jsonfilter、ubus 及足够闪存；包内自带静态抓包程序。
+小米 Router 3G／MT7621、OpenWrt／ImmortalWrt 24.10 的 `opkg` 固件可选择 **`luci-app-radarsender_0.1.6-2_mipsel_24kc.ipk`**。在 **系统 → 软件包 → 上传软件包** 上传这个真实 `.ipk`，不要上传 `.run` 或把它改名为 `.ipk`。安装后刷新 LuCI，进入 **服务 → 雷达发射（独立版）**。需要现有 LuCI、rpcd、procd、jsonfilter、ubus 及足够闪存；包内自带静态抓包程序。
 
 IPK 由 `opkg` 登记和卸载：`opkg remove luci-app-radarsender`；保留 `/etc/radarsender` 私有配置。升级前建议先断开；标准 opkg 升级会停止旧服务，重启后仅启动 idle 管理后台，不自动恢复发送。已有 portable `.run` 安装时先断开并用其卸载器卸载，再装 IPK，不能直接混用两个文件管理方式。IPK 安装脚本失败时 `opkg` 会报告未配置状态，不提供 portable 安装器的事务回滚保证。此包不适用于仅支持 `apk` 的固件。
+
+IPK 0.1.6-2 修复精简固件缺少 `od` 时误报架构错误的问题：由 `opkg` 根据包的 `Architecture` 校验，安装不需要额外安装 `od`，不要使用 `--force-architecture` 绕过校验。
 
 ### portable 独立安装器：终端安装
 
@@ -61,7 +63,7 @@ python -m unittest discover -s tests -p test_arch_selection.py -v
 
 输出位于 `dist/0.1.6/`，包括通用 `.run`／`.tar.gz`、各架构 `.run`／`.tar.gz`、`manifest.json` 和 `SHA256SUMS`。构建验证 tcpdump 的 SHA-256、补丁清单及所有输出的静态 ELF 架构，不导入旧工程。架构选择测试在 Linux 或 Windows Git POSIX shell 中运行，只使用合成 ELF 夹具，不操作真实路由器目录。
 
-`tools/build_ipk.py` 从已校验的 bundle 字节构建 `dist/ipk/0.1.6-1/` 中的 MT7621 `mipsel_24kc` 和原生验收用 `x86_64` IPK；不会重新编译或改动发送协议。`--bundle-base` 可指向已发布的 0.1.6 bundle 目录。IPK 保留第三方许可、正确安装路径和 rpcd symlink，不携带配置或 portable 卸载器。
+`tools/build_ipk.py` 从已校验的 bundle 字节构建 `dist/ipk/0.1.6-2/` 中的 MT7621 `mipsel_24kc` 和原生验收用 `x86_64` IPK；不会重新编译或改动发送协议。`--bundle-base` 可指向已发布的 0.1.6 bundle 目录。IPK 保留第三方许可、正确安装路径和 rpcd symlink，不携带配置或 portable 卸载器。
 
 重编译第三方 tcpdump 需要 Docker 和构建环境网络：
 
@@ -86,7 +88,7 @@ sh /usr/lib/radarsender/install.sh --uninstall
 
 重启服务会断开发送。卸载保留 `/etc/radarsender/config.json`，其中含连接通道，请勿上传或公开。portable 安装器升级失败会尝试回滚独立版文件；IPK 由 opkg 管理，不提供此事务保证。两种安装方式均不替换系统 tcpdump。
 
-`--print-target` 只读显示安装架构，不要求 root，也不启动、停止或修改服务；MIPS 识别需要 `od`。
+`--print-target` 只读显示安装架构，不要求 root，也不启动、停止或修改服务；portable 安装器的 MIPS 识别需要 `od`；IPK 不依赖该命令。
 
 ## 项目结构
 

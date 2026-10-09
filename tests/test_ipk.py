@@ -20,7 +20,7 @@ spec = importlib.util.spec_from_file_location("radarsender_ipk_build", ROOT / "t
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 OUT = Path(build.OUT)
-VERSION = "0.1.6-1"
+VERSION = "0.1.6-2"
 RELEASE = "0.1.6"
 BUNDLE_BASE = Path(os.environ.get("RADARSENDER_IPK_BUNDLE_BASE", getattr(build, "BUNDLE_BASE", ROOT / "dist" / RELEASE)))
 TARGETS = {"mipsel_24kc": ("mipsel", 1, 8), "x86_64": ("x64", 2, 62)}
@@ -164,6 +164,23 @@ class BuiltIPK(unittest.TestCase):
                 for name in ("preinst", "postinst", "prerm", "postrm"):
                     self.assertTrue(files[name].startswith(b"#!/bin/sh\n"), name)
                     self.assertNotIn(b"\r", files[name], name)
+
+    def test_maintainer_hooks_do_not_redetect_architecture(self):
+        # opkg checks the precise Architecture metadata. IPK hooks must not
+        # embed portable ELF probing or depend on the device providing od.
+        for architecture in TARGETS:
+            with self.subTest(architecture=architecture):
+                package = self.package(architecture)
+                _, rawfiles = read_tar(package["control.tar.gz"])
+                files = {normalized(name): data for name, data in rawfiles.items()}
+                metadata = control_fields(files["control"])
+                self.assertEqual(metadata["Architecture"], architecture)
+                for name in ("preinst", "postinst", "prerm", "postrm"):
+                    with self.subTest(hook=name):
+                        script = files[name].decode("utf-8")
+                        self.assertNotRegex(script, r"(?<![A-Za-z0-9_])od(?![A-Za-z0-9_])", name)
+                        for portable_probe in ("select_target", "elf_target", "probe"):
+                            self.assertNotIn(portable_probe, script.lower(), name)
 
     def test_data_paths_modes_licenses_and_release_provenance(self):
         self.assertEqual(self.release_manifest["version"], RELEASE)

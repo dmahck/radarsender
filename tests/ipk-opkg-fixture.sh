@@ -6,10 +6,11 @@ set -eu
 [ "$(id -u)" = 0 ] && [ "$(uname -m)" = x86_64 ] || { echo 'Disposable x86_64 container root required.' >&2; exit 1; }
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BUILD_ROOT=${RADARSENDER_OPKG_BUILD_ROOT:-/tmp/radarsender-opkg}
+case "$BUILD_ROOT" in /tmp/radarsender-opkg|/tmp/radarsender-opkg-*) ;; *) echo 'Fixture build root must be a dedicated /tmp/radarsender-opkg path.' >&2; exit 1;; esac
 OPKG=$BUILD_ROOT/bin/opkg
 [ -x "$OPKG" ] || sh "$HERE/build-opkg.sh"
 PACKAGE_NAME=luci-app-radarsender
-VERSION=0.1.6-1
+VERSION=0.1.6-2
 PACKAGES=${RADARSENDER_TEST_IPK_DIR:-/src/dist/ipk/$VERSION}
 NATIVE=$PACKAGES/${PACKAGE_NAME}_${VERSION}_x86_64.ipk
 FOREIGN=$PACKAGES/${PACKAGE_NAME}_${VERSION}_mipsel_24kc.ipk
@@ -66,11 +67,26 @@ case "$action" in
 esac
 EOF
 chmod 755 /usr/bin/jsonfilter /usr/bin/ubus /etc/init.d/rpcd /etc/rc.common
+od_original=
+od_saved=
 cleanup() {
     if [ -f /tmp/ipk-fixture-service.pid ]; then kill -TERM "$(cat /tmp/ipk-fixture-service.pid)" 2>/dev/null || true; fi
+    if [ -n "$od_saved" ] && [ -f "$od_saved" ]; then mv "$od_saved" "$od_original"; fi
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
+# Reproduce an OpenWrt userland without od for every native package operation.
+# This reversible utility move is allowed only inside the guarded disposable
+# container; retain its exact path for independent staged-ELF verification.
+[ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || fail 'Disposable test container required before hiding od'
+od_original=$(command -v od) || fail 'Fixture needs an initial od for final ELF verification'
+case "$od_original" in /usr/bin/od|/bin/od) ;; *) fail "Unexpected fixture od path: $od_original";; esac
+od_destination=$BUILD_ROOT/fixture-od
+[ ! -e "$od_destination" ] && [ ! -L "$od_destination" ] || fail 'Saved od destination already exists'
+od_saved=$od_destination
+mv "$od_original" "$od_saved"
+hash -r
+if command -v od >/dev/null 2>&1; then fail 'Fixture did not remove od from PATH'; fi
 cat >/etc/opkg.conf <<'EOF'
 dest root /
 lists_dir ext /var/opkg-lists
@@ -90,6 +106,13 @@ seed_dependencies /usr/lib/opkg/status
 for dependency in luci-base rpcd procd ubus jsonfilter; do : >"/usr/lib/opkg/info/$dependency.list"; done
 opkg() { "$OPKG" --conf /etc/opkg.conf "$@"; }
 
+# The package manager, not preinst userland probing, rejects a foreign IPK.
+# Do not register mipsel_24kc on the native root or use force-architecture.
+if opkg install "$FOREIGN" >/tmp/ipk-fixture-arch-reject.log 2>&1; then fail 'native opkg accepted a foreign architecture'; fi
+cat /tmp/ipk-fixture-arch-reject.log
+grep -Eq '(incompatible.*architectures|architecture.*unsupported|unsupported.*architecture)' /tmp/ipk-fixture-arch-reject.log || fail 'foreign refusal did not come from opkg architecture validation'
+[ ! -e /usr/sbin/radarsender ] && [ ! -e /etc/init.d/radarsender ] || fail 'foreign package wrote native files'
+
 # Prove the real package manager invokes preinst and refuses a portable install
 # before replacing any of its existing files.
 mkdir -p /usr/lib/radarsender
@@ -105,6 +128,27 @@ grep -q 'Portable RadarSender is installed' /tmp/ipk-fixture-portable-reject.log
 rm -f /usr/lib/radarsender/installed /usr/sbin/radarsender /usr/lib/radarsender/tcpdump
 rmdir /usr/lib/radarsender
 
+# Independently execute the unmodified MIPS preinst with no od and a uname
+# reporting mips. The marker proves the hook never invokes architecture probing.
+# No foreign ELF, postinst or service hook is executed in this regression.
+preinst_fixture=$(mktemp -d /tmp/radarsender-mips-preinst.XXXXXX)
+mkdir "$preinst_fixture/mock-bin"
+tar -xzf "$FOREIGN" -C "$preinst_fixture" ./control.tar.gz
+tar -xzf "$preinst_fixture/control.tar.gz" -C "$preinst_fixture" ./preinst
+cat >"$preinst_fixture/mock-bin/uname" <<'EOF'
+#!/bin/sh
+printf 'uname-called\n' >"$RADARSENDER_FIXTURE_UNAME_MARKER"
+printf 'mips\n'
+EOF
+chmod 755 "$preinst_fixture/mock-bin/uname"
+[ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || fail 'Disposable test container required before MIPS hook regression'
+if command -v od >/dev/null 2>&1; then fail 'od unexpectedly available before MIPS preinst'; fi
+PATH="$preinst_fixture/mock-bin:$PATH" IPKG_INSTROOT= PKG_UPGRADE=0 RADARSENDER_FIXTURE_UNAME_MARKER="$preinst_fixture/uname-called" \
+    sh "$preinst_fixture/preinst" install
+[ ! -e "$preinst_fixture/uname-called" ] || fail 'MIPS preinst called uname instead of relying on opkg Architecture'
+[ ! -e /usr/sbin/radarsender ] && [ ! -e /etc/init.d/radarsender ] || fail 'MIPS preinst unexpectedly installed native files'
+
+if command -v od >/dev/null 2>&1; then fail 'od unexpectedly available before native installation'; fi
 opkg install "$NATIVE"
 opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 opkg status "$PACKAGE_NAME" | grep -q "^Version: $VERSION\$"
@@ -132,8 +176,8 @@ config_before=$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)
 # upgrade path and PKG_UPGRADE, not --force-reinstall (which removes/reinstalls).
 # It proves hook lifecycle behavior, not cross-version binary/config migration.
 /etc/init.d/radarsender disable
-sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-0/;}" /usr/lib/opkg/status
-opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-0$'
+sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-1/;}" /usr/lib/opkg/status
+opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-1$'
 : >/tmp/ipk-fixture-service-actions
 opkg install "$NATIVE"
 opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
@@ -167,15 +211,16 @@ arch all 1
 arch mipsel_24kc 10
 EOF
 seed_dependencies "$offline/usr/lib/opkg/status"
+for dependency in luci-base rpcd procd ubus jsonfilter; do : >"$offline/usr/lib/opkg/info/$dependency.list"; done
 host_actions=$(sha256sum /tmp/ipk-fixture-service-actions /tmp/ipk-fixture-rpcd-actions)
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" install "$FOREIGN"
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -q '^Architecture: mipsel_24kc$'
 for file in usr/sbin/radarsender usr/lib/radarsender/tcpdump; do
     [ "$(sha256sum "$offline/$file" | awk '{print $1}')" = "$(sha256sum "/src/dist/0.1.6/mipsel/$(basename "$file")" | awk '{print $1}')" ] || fail "offline ELF hash mismatch: $file"
-    [ "$(od -An -v -tu1 -N6 "$offline/$file" | xargs)" = '127 69 76 70 1 1' ] || fail "offline executable is not ELF32 little-endian: $file"
+    [ "$("$od_saved" -An -v -tu1 -N6 "$offline/$file" | xargs)" = '127 69 76 70 1 1' ] || fail "offline executable is not ELF32 little-endian: $file"
 done
 [ "$host_actions" = "$(sha256sum /tmp/ipk-fixture-service-actions /tmp/ipk-fixture-rpcd-actions)" ] || fail 'offline install executed host hooks'
 [ ! -e /usr/sbin/radarsender ] && [ ! -S /var/run/radarsender/control.sock ] || fail 'offline install touched host service'
 [ "$config_before" = "$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)" ] || fail 'offline install touched host configuration'
-echo 'PASS real OpenWrt 24.10 opkg: portable conflict refusal, dependency resolution, installed status/file ownership/permissions, native service and replacement, remove/config retention, unchanged system capture/old sender, and MIPS offline-root ELF hash with no host hooks'
+echo 'PASS real OpenWrt 24.10 opkg: no-od native install, no-od MIPS preinst without uname probing, foreign-architecture refusal, portable conflict refusal, dependency resolution, installed status/file ownership/permissions, native service and replacement, remove/config retention, unchanged system capture/old sender, and MIPS offline-root ELF hash with no host hooks'

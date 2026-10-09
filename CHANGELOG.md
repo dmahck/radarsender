@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6-2 IPK compatibility fix
+
+- 修复精简 OpenWrt 固件缺少 `od` 时，IPK preinst 误报错误架构并拒绝安装。
+- IPK 不再复制 portable 架构探测脚本；依靠真实 opkg 的 `Architecture` 匹配，保留依赖、文件所有权和配置保护。
+- 增加无 `od` 的 native 安装、MIPS preinst 和真实 opkg 错架构拒绝回归验收；发送程序仍为 0.1.6。
+
 ## 0.1.6-1 IPK packaging
 
 - 新增实际 opkg IPK：MT7621 `mipsel_24kc`，可由 LuCI 软件包上传页面安装；发送程序仍为 0.1.6，协议和完整帧行为不变。
