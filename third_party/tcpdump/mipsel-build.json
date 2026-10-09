@@ -1,0 +1,21 @@
+{
+  "build_commit": "a78a0ce983f499ed5f3da0a54173de0834688a4a",
+  "build_run": "https://github.com/dmahck/radarsender/actions/runs/37935993231",
+  "tcpdump_sha256": "2af57b03b8a4322a991c94bf40f30bd3aebda35e44a313bf10dbbee6558412cc",
+  "tcpdump_size": 1276832,
+  "compiler": "OpenWrt 24.10.0 GCC 13.3.0",
+  "compiler_archive_sha256": "4db9eab44279ef9c7111ebf5050041846488395f458b9ca9ab18ad1989ab08dd",
+  "libc": "musl 1.2.5 rebuilt from unchanged source archive",
+  "architecture": "ELF32 little-endian MIPS32r2 O32",
+  "elf_flags": "0x70001005",
+  "fp_abi": "Soft float; CPR1 size 0",
+  "linkage": "static non-PIE; no PT_INTERP or PT_DYNAMIC",
+  "qemu_cpu": "24Kc (no FPU)",
+  "build_acceptance": [
+    "static soft-float sanity arithmetic output exactly 3.12",
+    "tcpdump 4.99.7 and libpcap 1.11.0 version/help",
+    "immediate-mode option",
+    "offline Ethernet PCAP exact byte roundtrip"
+  ],
+  "limitations": "QEMU user-mode is not MT7621 live PACKET capture, throughput or packet-loss validation. See final release CI for sender runtime regression."
+}

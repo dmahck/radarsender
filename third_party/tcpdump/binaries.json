@@ -1,7 +1,7 @@
 {
   "tcpdump": "4.99.7",
   "libpcap": "1.11.0",
-  "compiler": "Zig 0.14.1; ARM: GCC 12 + musl 1.2.5",
+  "compiler": "Zig 0.14.1; ARM: GCC 12 + musl 1.2.5; MIPSEL: OpenWrt 24.10.0 / GCC 13.3.0 + musl 1.2.5",
   "linkage": "static musl",
   "targets": {
     "x64": {
@@ -19,6 +19,10 @@
     "arm": {
       "cpu": "ARMv5TE soft-float",
       "sha256": "28bef7afaa52309f8d6f16978e49849b565267208cd4a8fab230d187bce2b5bb"
+    },
+    "mipsel": {
+      "cpu": "MIPS32r2 little-endian o32 soft-float",
+      "sha256": "2af57b03b8a4322a991c94bf40f30bd3aebda35e44a313bf10dbbee6558412cc"
     }
   },
   "patches": {
