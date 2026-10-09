@@ -117,7 +117,9 @@ EOF
         {
             printf 'OpenWrt 24.10.0; archive SHA256 4db9eab44279ef9c7111ebf5050041846488395f458b9ca9ab18ad1989ab08dd\n'
             "$MIPSEL_CROSS-gcc" --version | head -n 1
-            "$MIPSEL_CROSS-gcc" -v 2>&1
+            # OpenWrt's wrapper adds specs even for a diagnostic invocation;
+            # use preprocessing so -v cannot start a link without main().
+            "$MIPSEL_CROSS-gcc" -v -E -x c /dev/null 2>&1
             printf 'target: mipsel-linux-musl; ISA: mips32r2; ABI: o32; float: soft\n'
             "$MIPSEL_CROSS-gcc" -dumpmachine
             "$MIPSEL_CROSS-gcc" -march=mips32r2 -mabi=32 -msoft-float -print-multi-lib
