@@ -104,11 +104,13 @@ EOF
                 ./configure --prefix=/work/mipsel/musl-static --target=mipsel-linux-musl --disable-shared --enable-wrapper=gcc &&
             make -j2 && make install
         ) >/out/logs/mipsel-musl.log 2>&1 || { tail -n 60 /out/logs/mipsel-musl.log; exit 1; }
-        [ -f /work/mipsel/musl-static/lib/musl-gcc.specs ] || { echo 'Missing musl GCC specs.' >&2; exit 1; }
+        gcc_headers=$("$MIPSEL_CROSS-gcc" -print-file-name=include)
+        [ -d "$gcc_headers" ] || { echo 'Missing MIPSEL compiler headers.' >&2; exit 1; }
         cat >/work/mipsel/mipsel-musl-gcc <<EOF
 #!/bin/sh
-exec "$MIPSEL_CROSS-gcc" -march=mips32r2 -mabi=32 -msoft-float -mno-mips16 -fno-pie \
-    -specs=/work/mipsel/musl-static/lib/musl-gcc.specs \
+exec "$MIPSEL_CROSS-gcc" -march=mips32r2 -mabi=32 -msoft-float -mno-mips16 -fno-pie -nostdinc \
+    -isystem "$gcc_headers" -isystem /work/mipsel/musl-static/include \
+    -B /work/mipsel/musl-static/lib \
     -idirafter "$kernel_headers" "\$@"
 EOF
         chmod 755 /work/mipsel/mipsel-musl-gcc
