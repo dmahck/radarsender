@@ -20,6 +20,14 @@
 
 ## 安装
 
+### MT7621：LuCI 软件包管理器安装
+
+小米 Router 3G／MT7621、OpenWrt／ImmortalWrt 24.10 的 `opkg` 固件可选择 **`luci-app-radarsender_0.1.6-1_mipsel_24kc.ipk`**。在 **系统 → 软件包 → 上传软件包** 上传这个真实 `.ipk`，不要上传 `.run` 或把它改名为 `.ipk`。安装后刷新 LuCI，进入 **服务 → 雷达发射（独立版）**。需要现有 LuCI、rpcd、procd、jsonfilter、ubus 及足够闪存；包内自带静态抓包程序。
+
+IPK 由 `opkg` 登记和卸载：`opkg remove luci-app-radarsender`；保留 `/etc/radarsender` 私有配置。已有 portable `.run` 安装时先断开并用其卸载器卸载，再装 IPK，不能直接混用两个文件管理方式。IPK 安装脚本失败时 `opkg` 会报告未配置状态，不提供 portable 安装器的事务回滚保证。此包不适用于仅支持 `apk` 的固件。
+
+### portable 独立安装器：终端安装
+
 从 [Releases](https://github.com/dmahck/radarsender/releases) 下载 `luci-app-radarsender_0.1.6_universal.run`，上传到路由器 `/tmp`。也可用下文命令自行构建。已知 CPU 架构时，内存或 `/tmp` 空间紧张的设备可下载对应的 `luci-app-radarsender_0.1.6_x64.run`、`_x86.run`、`_arm64.run`、`_arm.run` 或 `_mipsel.run`，运行相同的校验／预检／安装命令；安装文件和功能相同，仅不携带其他架构。
 
 ```sh
@@ -47,10 +55,13 @@ go test -count=1 ./...
 go vet ./...
 node tests/ui.cjs
 python tools/build.py
+python tools/build_ipk.py
 python -m unittest discover -s tests -p test_arch_selection.py -v
 ```
 
 输出位于 `dist/0.1.6/`，包括通用 `.run`／`.tar.gz`、各架构 `.run`／`.tar.gz`、`manifest.json` 和 `SHA256SUMS`。构建验证 tcpdump 的 SHA-256、补丁清单及所有输出的静态 ELF 架构，不导入旧工程。架构选择测试在 Linux 或 Windows Git POSIX shell 中运行，只使用合成 ELF 夹具，不操作真实路由器目录。
+
+`tools/build_ipk.py` 从已校验的 bundle 字节构建 `dist/ipk/0.1.6-1/` 中的 MT7621 `mipsel_24kc` 和原生验收用 `x86_64` IPK；不会重新编译或改动发送协议。`--bundle-base` 可指向已发布的 0.1.6 bundle 目录。IPK 保留第三方许可、正确安装路径和 rpcd symlink，不携带配置或 portable 卸载器。
 
 重编译第三方 tcpdump 需要 Docker 和构建环境网络：
 

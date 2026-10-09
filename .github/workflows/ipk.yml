@@ -1,0 +1,40 @@
+name: OpenWrt IPK acceptance
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ipk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and inspect real IPKs
+        run: |
+          python tools/build.py
+          python tools/build_ipk.py
+          python -m unittest discover -s tests -p test_ipk.py -v
+      - name: Genuine OpenWrt 24.10 opkg installation acceptance
+        run: |
+          docker run --rm \
+            -e RADARSENDER_FIXTURE_CONTAINER=1 \
+            -v "$PWD:/src:ro" \
+            debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 \
+            sh -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates curl zstd cmake gcc make pkg-config libjson-c-dev zlib1g-dev && exec sh /src/tests/ipk-opkg-fixture.sh'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radarsender-ipk-0.1.6-1
+          path: dist/ipk/0.1.6-1/
+          if-no-files-found: error
+          retention-days: 14

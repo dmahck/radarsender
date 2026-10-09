@@ -39,6 +39,7 @@ jobs:
       - name: Build and verify all five architectures
         run: |
           python tools/build.py
+          python tools/build_ipk.py
           python -m unittest discover -s tests -p 'test_*.py' -v
       - name: MIPS little-endian QEMU runtime acceptance
         run: |

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6-1 IPK packaging
+
+- 新增实际 opkg IPK：MT7621 `mipsel_24kc`，可由 LuCI 软件包上传页面安装；发送程序仍为 0.1.6，协议和完整帧行为不变。
+- 保留静态 tcpdump、来源与第三方许可；IPK 不分发通道配置和 portable 卸载器，移除时保留私有配置。
+- 安装前拒绝 portable／非本包所有文件冲突及错误架构；使用 opkg 登记与升级流程，尊重 `PKG_UPGRADE`，修正文档中 `.run` 安装入口说明。
+- 新增结构／manifest／MIPS ABI 测试，以及真实 OpenWrt 24.10 opkg 隔离安装验收。实机 MT7621 抓包与吞吐仍待硬件验证。
+
 ## 0.1.6
 
 - 新增第五架构 `mipsel`，面向 MT7621：Go `mipsle`／软件浮点，静态 tcpdump 使用 MIPS32r2 little-endian／软件浮点基线；提供独立小型 `.run` 与通用包。

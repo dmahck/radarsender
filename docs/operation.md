@@ -29,7 +29,9 @@
 
 ## 安装
 
-推荐 `dist/0.1.6/luci-app-radarsender_0.1.6_universal.run`，支持 ARM、ARM64、x86、x64、MIPS32 little-endian（`mipsel`）。上传到 iStore 的手动安装，或在路由器执行：
+MT7621 的 `opkg` 固件若使用 LuCI 软件包管理器，请上传 `luci-app-radarsender_0.1.6-1_mipsel_24kc.ipk`。这是实际登记到 opkg 的 IPK，卸载执行 `opkg remove luci-app-radarsender`，保留私有配置。不能与 portable 安装同时管理同一组文件；先断开并卸载 portable，再安装 IPK。IPK hook 失败由 opkg 报告未配置状态，不具备 portable 事务回滚保证；不适用于 `apk` 固件。
+
+终端安装可用 `dist/0.1.6/luci-app-radarsender_0.1.6_universal.run`，支持 ARM、ARM64、x86、x64、MIPS32 little-endian（`mipsel`）。`.run` **不能通过 opkg 软件包上传页面安装**，不要改名为 `.ipk`；上传到 `/tmp` 后在路由器终端执行：
 
 ```sh
 sh /tmp/luci-app-radarsender_0.1.6_universal.run --verify
