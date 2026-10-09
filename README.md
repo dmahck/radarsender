@@ -24,7 +24,7 @@
 
 小米 Router 3G／MT7621、OpenWrt／ImmortalWrt 24.10 的 `opkg` 固件可选择 **`luci-app-radarsender_0.1.6-1_mipsel_24kc.ipk`**。在 **系统 → 软件包 → 上传软件包** 上传这个真实 `.ipk`，不要上传 `.run` 或把它改名为 `.ipk`。安装后刷新 LuCI，进入 **服务 → 雷达发射（独立版）**。需要现有 LuCI、rpcd、procd、jsonfilter、ubus 及足够闪存；包内自带静态抓包程序。
 
-IPK 由 `opkg` 登记和卸载：`opkg remove luci-app-radarsender`；保留 `/etc/radarsender` 私有配置。已有 portable `.run` 安装时先断开并用其卸载器卸载，再装 IPK，不能直接混用两个文件管理方式。IPK 安装脚本失败时 `opkg` 会报告未配置状态，不提供 portable 安装器的事务回滚保证。此包不适用于仅支持 `apk` 的固件。
+IPK 由 `opkg` 登记和卸载：`opkg remove luci-app-radarsender`；保留 `/etc/radarsender` 私有配置。升级前建议先断开；标准 opkg 升级会停止旧服务，重启后仅启动 idle 管理后台，不自动恢复发送。已有 portable `.run` 安装时先断开并用其卸载器卸载，再装 IPK，不能直接混用两个文件管理方式。IPK 安装脚本失败时 `opkg` 会报告未配置状态，不提供 portable 安装器的事务回滚保证。此包不适用于仅支持 `apk` 的固件。
 
 ### portable 独立安装器：终端安装
 

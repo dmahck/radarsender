@@ -31,7 +31,6 @@ original_sender=$(sha256sum /usr/sbin/routercapture)
 cat >/usr/bin/jsonfilter <<'EOF'
 #!/bin/sh
 text=$2; field=${4#@.}
-[ "$field" != state ] || [ ! -f /tmp/ipk-fixture-report-sending ] || { echo streaming; exit 0; }
 printf '%s' "$text" | sed -n "s/.*\"$field\":\"\{0,1\}\([^\",}]*\).*/\1/p"
 EOF
 cat >/usr/bin/ubus <<'EOF'
@@ -136,14 +135,6 @@ config_before=$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)
 sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-0/;}" /usr/lib/opkg/status
 opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-0$'
 : >/tmp/ipk-fixture-service-actions
-# Report a synthetic active session at the state boundary; no capture, channel,
-# external receiver or real user credentials are needed for this refusal test.
-touch /tmp/ipk-fixture-report-sending
-if opkg install "$NATIVE" >/tmp/ipk-fixture-active-reject.log 2>&1; then fail 'active upgrade was accepted'; fi
-cat /tmp/ipk-fixture-active-reject.log
-grep -q 'Disconnect RadarSender before upgrading' /tmp/ipk-fixture-active-reject.log
-if grep -Eq '^(stop|enable|disable)$' /tmp/ipk-fixture-service-actions; then fail 'active-upgrade refusal modified service'; fi
-rm /tmp/ipk-fixture-report-sending
 opkg install "$NATIVE"
 opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 opkg status "$PACKAGE_NAME" | grep -q "^Version: $VERSION\$"

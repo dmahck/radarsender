@@ -131,11 +131,9 @@ echo 'RadarSender installed. Refresh LuCI: Services / 雷达发射（独立版�
 set -eu
 [ -z "${IPKG_INSTROOT:-}" ] || exit 0
 if [ -x /etc/init.d/radarsender ]; then
-    if [ "${PKG_UPGRADE:-0}" = 1 ] && /etc/init.d/radarsender running >/dev/null 2>&1; then
-        state=$(/usr/sbin/radarsender call status </dev/null) || exit 1
-        [ "$(jsonfilter -s "$state" -e '@.ok')" = true ] || exit 1
-        case "$(jsonfilter -s "$state" -e '@.state')" in idle|error) ;; *) echo 'Disconnect RadarSender before upgrading.' >&2; exit 1;; esac
-    fi
+    # Use OpenWrt's normal upgrade lifecycle: stop the old daemon. This opkg
+    # revision can rewrite the old owner list after an aborted upgrade, so do
+    # not add an active-session refusal in prerm after ownership has moved.
     /etc/init.d/radarsender stop
     # Preserve enable state while opkg replaces this package during upgrades.
     [ "${PKG_UPGRADE:-0}" = 1 ] || /etc/init.d/radarsender disable
