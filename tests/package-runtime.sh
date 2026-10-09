@@ -1,19 +1,19 @@
 #!/bin/sh
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || { echo 'Disposable test container required.'; exit 1; }
-BASE=/src/dist/0.1.5
+BASE=/src/dist/0.1.6
 BIN=$BASE/x64/radarsender
-PACKAGE=$BASE/luci-app-radarsender_0.1.5_universal.run
-[ "$("$BIN" version)" = '{"version":"0.1.5"}' ]
+PACKAGE=$BASE/luci-app-radarsender_0.1.6_universal.run
+[ "$("$BIN" version)" = '{"version":"0.1.6"}' ]
 sh -n /src/tools/install.sh
 sh "$PACKAGE" --verify
 cp "$PACKAGE" /tmp/corrupt.run
 printf X >>/tmp/corrupt.run
 if sh /tmp/corrupt.run --verify >/tmp/corrupt.log 2>&1; then echo 'FAIL: corrupt package accepted'; exit 1; fi
 grep -q 'integrity check failed' /tmp/corrupt.log
-for arch in arm arm64 x86 x64; do
+for arch in arm arm64 x86 x64 mipsel; do
     mkdir /tmp/bundle-$arch
-    tar -xzf "$BASE/$arch/radarsender-0.1.5-$arch.tar.gz" -C /tmp/bundle-$arch
+    tar -xzf "$BASE/$arch/radarsender-0.1.6-$arch.tar.gz" -C /tmp/bundle-$arch
     (cd /tmp/bundle-$arch && sha256sum -c SHA256SUMS >/dev/null)
 done
 mkdir -p /etc/radarsender
@@ -29,7 +29,7 @@ for i in 1 2 3 4 5; do
 done
 [ "$ready" = 1 ]
 printf '%s' "$state" | grep -q '"ok":true'
-printf '%s' "$state" | grep -Fq '"version":"0.1.5"'
+printf '%s' "$state" | grep -Fq '"version":"0.1.6"'
 if "$BIN" serve >/tmp/duplicate.log 2>&1; then echo 'FAIL: duplicate service started'; exit 1; fi
 printf '%s' '{"channel":""}' | "$BIN" call configure | grep -q '"ok":true'
 state=$("$BIN" call status </dev/null)
@@ -42,4 +42,4 @@ kill -TERM "$pid"
 wait "$pid"
 trap - EXIT
 [ ! -e /var/run/radarsender/control.sock ]
-echo 'PASS package hashes, four target archives, corrupt rejection, damaged-config daemon startup, exclusive process lock, RPC config repair, private permissions, graceful shutdown'
+echo 'PASS package hashes, five target archives, corrupt rejection, damaged-config daemon startup, exclusive process lock, RPC config repair, private permissions, graceful shutdown'

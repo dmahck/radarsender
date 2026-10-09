@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -31,16 +31,33 @@ jobs:
           go test -race -count=1 ./...
       - name: LuCI interaction tests
         run: node tests/ui.cjs
-      - name: Build and verify all four architectures
+      - name: Bootstrap new capture architecture if needed
+        run: |
+          if [ ! -f third_party/tcpdump/bin/mipsel/tcpdump ]; then
+            python tools/build_tcpdump.py mipsel
+          fi
+      - name: Build and verify all five architectures
         run: |
           python tools/build.py
-          python -m unittest discover -s tests -p test_packages.py -v
+          python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: MIPS little-endian QEMU runtime acceptance
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-user busybox
+          # Confirm that the installer ELF probe uses BusyBox-compatible flags.
+          test "$(busybox od -An -v -tu1 -N4 /bin/sh | xargs)" = '127 69 76 70'
+          mkdir -p artifacts
+          CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/sender-mipsel-tests ./internal/sender
+          CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/radarupload-mipsel-tests ./internal/radarupload
+          sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.6/mipsel \
+            --testbin artifacts/sender-mipsel-tests \
+            --upload-testbin artifacts/radarupload-mipsel-tests
       - name: Actual bundled tcpdump to HTTP acceptance
         run: |
           mkdir -p artifacts
           CGO_ENABLED=0 go test -c -o artifacts/sender-linux-tests ./internal/sender
           docker run --rm --cap-add NET_RAW \
-            -e RS_TEST_REAL_TCPDUMP=/src/dist/0.1.5/x64/tcpdump \
+            -e RS_TEST_REAL_TCPDUMP=/src/dist/0.1.6/x64/tcpdump \
             -v "$PWD:/src:ro" debian:bookworm-slim \
             /src/artifacts/sender-linux-tests \
             -test.run '^TestBundledCaptureUploadsRealEthernet$' -test.v -test.timeout 45s
@@ -60,12 +77,12 @@ jobs:
         run: |
           docker run --rm --network none \
             -e RADARSENDER_FIXTURE_CONTAINER=1 \
-            -e RADARSENDER_TEST_PACKAGE=/src/dist/0.1.5/x64/luci-app-radarsender_0.1.5_x64.run \
+            -e RADARSENDER_TEST_PACKAGE=/src/dist/0.1.6/x64/luci-app-radarsender_0.1.6_x64.run \
             -v "$PWD:/src:ro" debian:bookworm-slim \
             sh /src/tests/install-fixture.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: radarsender-0.1.5
-          path: dist/0.1.5/
+          name: radarsender-0.1.6
+          path: dist/0.1.6/
           if-no-files-found: error
           retention-days: 14

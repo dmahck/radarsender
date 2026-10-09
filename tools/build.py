@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 OUT = ROOT / "dist" / VERSION
 VENDOR = ROOT / "third_party" / "tcpdump"
 TARGETS = {
@@ -18,6 +18,7 @@ TARGETS = {
     "x86": ("386", {"GO386": "softfloat"}, 1, 3),
     "arm64": ("arm64", {"GOARM64": "v8.0"}, 2, 183),
     "arm": ("arm", {"GOARM": "5,softfloat"}, 1, 40),
+    "mipsel": ("mipsle", {"GOMIPS": "softfloat"}, 1, 8),
 }
 
 def digest(data):
@@ -83,7 +84,7 @@ def main():
         folder = OUT/name
         folder.mkdir(exist_ok=True)
         binary = folder/"radarsender"
-        env = {k:v for k,v in os.environ.items() if k not in ("GOARM", "GOARM64", "GOAMD64", "GO386", "GOEXPERIMENT")}
+        env = {k:v for k,v in os.environ.items() if k not in ("GOARM", "GOARM64", "GOAMD64", "GO386", "GOMIPS", "GOMIPS64", "GOEXPERIMENT")}
         env.update(GOOS="linux", GOARCH=arch, CGO_ENABLED="0", **tuning)
         subprocess.run(["go", "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid=", "-o", str(binary), "./cmd/radarsender"], cwd=ROOT, env=env, check=True)
         data=binary.read_bytes()

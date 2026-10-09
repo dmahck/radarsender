@@ -1,0 +1,40 @@
+name: Build MIPS little-endian tcpdump
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build static MIPS32 little-endian soft-float capture
+        run: python tools/build_tcpdump.py mipsel
+      - name: Install user-mode emulator
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-user
+      - name: Verify private capture under QEMU
+        run: |
+          qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump --version
+          qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump --help 2>&1 | grep -q -- --immediate-mode
+          qemu-mipsel third_party/tcpdump/bin/mipsel/tcpdump -nn --immediate-mode \
+            -r tests/fixtures/ethernet.pcap -w /tmp/mipsel-roundtrip.pcap
+          cmp tests/fixtures/ethernet.pcap /tmp/mipsel-roundtrip.pcap
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mipsel-tcpdump-build
+          path: |
+            third_party/tcpdump/bin/mipsel/tcpdump
+            third_party/tcpdump/binaries.json
+            artifacts/tcpdump-build/
+          if-no-files-found: error
+          retention-days: 14

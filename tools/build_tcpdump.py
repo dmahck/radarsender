@@ -13,25 +13,82 @@ VENDOR = ROOT / "third_party" / "tcpdump"
 DOWNLOADS = ROOT / "artifacts" / "downloads"
 BUILD = ROOT / "artifacts" / "tcpdump-build"
 IMAGE = "debian@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251"
+TARGET_CPUS = {
+    "x64": "x86-64 baseline",
+    "x86": "Pentium 4",
+    "arm64": "ARMv8-A baseline",
+    "arm": "ARMv5TE soft-float",
+    "mipsel": "MIPS32r2 little-endian o32 soft-float",
+}
+ZIG_TARGETS = {"x64", "x86", "arm64"}
+GCC_TARGETS = {"arm", "mipsel"}
+
+
+def parse_targets(args):
+    targets = args or list(TARGET_CPUS)
+    if any(target not in TARGET_CPUS for target in targets):
+        raise SystemExit("Targets: " + " ".join(TARGET_CPUS))
+    if len(targets) != len(set(targets)):
+        raise SystemExit("Each target may be selected only once")
+    return targets
+
+
+def verify_archive(path, expected):
+    if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        raise RuntimeError(f"Checksum mismatch: {path.name}")
+
+
+def prepare_sources(sources, targets):
+    required = {"tcpdump", "libpcap"}
+    if set(targets) & GCC_TARGETS:
+        required.add("musl")
+    if set(targets) & ZIG_TARGETS:
+        required.add("zig")
+    DOWNLOADS.mkdir(parents=True, exist_ok=True)
+    for component, spec in sources.items():
+        if component not in required:
+            continue
+        path = DOWNLOADS / spec["url"].rsplit("/", 1)[-1]
+        vendored = VENDOR / "sources" / path.name
+        if not path.exists():
+            if vendored.is_file():
+                verify_archive(vendored, spec["sha256"])
+                shutil.copy2(vendored, path)
+            else:
+                print("Downloading", component, spec["version"], flush=True)
+                partial = path.with_name(path.name + ".download")
+                try:
+                    with urllib.request.urlopen(spec["url"], timeout=120) as response, partial.open("wb") as out:
+                        shutil.copyfileobj(response, out)
+                    verify_archive(partial, spec["sha256"])
+                    partial.replace(path)
+                finally:
+                    if partial.exists():
+                        partial.unlink()
+        verify_archive(path, spec["sha256"])
+        if component != "zig":
+            vendored.parent.mkdir(exist_ok=True)
+            if vendored.is_file():
+                verify_archive(vendored, spec["sha256"])
+            else:
+                shutil.copy2(path, vendored)
 
 def main():
+    targets = parse_targets(sys.argv[1:])
     sources = json.loads((VENDOR / "sources.json").read_text(encoding="utf-8"))
-    DOWNLOADS.mkdir(parents=True, exist_ok=True)
+    previous = json.loads((VENDOR / "binaries.json").read_text(encoding="utf-8"))
+    if any(target not in TARGET_CPUS for target in previous["targets"]):
+        raise RuntimeError("Unknown target in existing binary manifest")
+    prepare_sources(sources, targets)
     BUILD.mkdir(parents=True, exist_ok=True)
-    for component, spec in sources.items():
-        path = DOWNLOADS / spec["url"].rsplit("/", 1)[-1]
-        if not path.exists():
-            print("Downloading", component, spec["version"], flush=True)
-            with urllib.request.urlopen(spec["url"], timeout=120) as response, path.open("wb") as out:
-                shutil.copyfileobj(response, out)
-        if hashlib.sha256(path.read_bytes()).hexdigest() != spec["sha256"]:
-            raise RuntimeError(f"Checksum mismatch: {path.name}")
-        if component != "zig":
-            (VENDOR / "sources").mkdir(exist_ok=True)
-            shutil.copy2(path, VENDOR / "sources" / path.name)
-    targets = sys.argv[1:] or ["x64", "x86", "arm64", "arm"]
-    if any(t not in ("x64", "x86", "arm64", "arm") for t in targets):
-        raise SystemExit("Targets: x64 x86 arm64 arm")
+    from build import check_static_elf, TARGETS
+    # A subset rebuild must not silently change or drop an unselected binary.
+    for target, spec in previous["targets"].items():
+        if target not in targets:
+            data = (VENDOR / "bin" / target / "tcpdump").read_bytes()
+            check_static_elf(data, TARGETS[target][2], TARGETS[target][3])
+            if hashlib.sha256(data).hexdigest() != spec["sha256"]:
+                raise RuntimeError(f"Existing binary checksum mismatch: {target}")
     subprocess.run([
         "docker", "run", "--rm", "--platform", "linux/amd64",
         "-e", "RADARSENDER_BUILD_TARGETS=" + " ".join(targets),
@@ -40,7 +97,6 @@ def main():
         "--mount", f"type=bind,source={BUILD},target=/out", IMAGE,
         "sh", "/src/tools/build_tcpdump.sh",
     ], check=True)
-    from build import check_static_elf, TARGETS
     for target in targets:
         data = (BUILD / target / "tcpdump").read_bytes()
         check_static_elf(data, TARGETS[target][2], TARGETS[target][3])
@@ -48,11 +104,18 @@ def main():
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "tcpdump").write_bytes(data)
         os.chmod(dest / "tcpdump", 0o755)
-    if "arm" in targets:
-        shutil.copy2(BUILD/"gcc-runtime-LICENSE",VENDOR/"gcc-runtime-LICENSE")
-    manifest={"tcpdump":sources["tcpdump"]["version"],"libpcap":sources["libpcap"]["version"],"compiler":"Zig " + sources["zig"]["version"] + "; ARM: GCC 12 + musl " + sources["musl"]["version"],"linkage":"static musl","targets":{}}
+    # The existing GCC notice covers both GCC 12 cross targets. Never replace
+    # it as a side effect of a one-target rebuild; export current notices to
+    # artifacts for review if the Debian packaging notice changes.
+    if set(targets) & GCC_TARGETS:
+        if not (VENDOR / "gcc-runtime-LICENSE").is_file():
+            raise RuntimeError("Missing GCC runtime license")
+    compiler = "Zig " + sources["zig"]["version"] + "; ARM: GCC 12 + musl " + sources["musl"]["version"]
+    if (VENDOR / "bin" / "mipsel" / "tcpdump").is_file():
+        compiler += "; MIPSEL: GCC 12 + musl " + sources["musl"]["version"]
+    manifest={"tcpdump":sources["tcpdump"]["version"],"libpcap":sources["libpcap"]["version"],"compiler":compiler,"linkage":"static musl","targets":{}}
     manifest["patches"]={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((VENDOR/"patches").glob("*.patch"))}
-    for target, cpu in (("x64","x86-64 baseline"),("x86","Pentium 4"),("arm64","ARMv8-A baseline"),("arm","ARMv5TE soft-float")):
+    for target, cpu in TARGET_CPUS.items():
         path=VENDOR/"bin"/target/"tcpdump"
         if path.is_file():
             data=path.read_bytes()

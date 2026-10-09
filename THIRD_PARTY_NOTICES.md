@@ -10,21 +10,25 @@ their source archives, or the bundled tcpdump executables.
 | --- | --- | --- |
 | tcpdump | 4.99.7, official upstream release archive | BSD-style; `third_party/tcpdump/tcpdump-4.99.7-LICENSE` and `upstream-NOTICES-LICENSE` |
 | libpcap | 1.11.0, official upstream release archive | BSD-style; `third_party/tcpdump/libpcap-1.11.0-LICENSE` and `upstream-NOTICES-LICENSE` |
-| musl | 1.2.5 for ARM; musl supplied by Zig for the other targets | MIT and additional component notices; `musl-arm-LICENSE` and `musl-LICENSE` |
+| musl | 1.2.5 for ARM and MIPSEL; musl supplied by Zig for the other targets | MIT and additional component notices; `musl-arm-LICENSE` and `musl-LICENSE` |
 | Zig runtime | Zig 0.14.1 toolchain | MIT; `zig-LICENSE` |
-| GCC runtime | GCC 12 ARM toolchain | GPL with the GCC Runtime Library Exception; `gcc-runtime-LICENSE` |
+| GCC runtime | GCC 12 ARM and MIPSEL toolchains | GPL with the GCC Runtime Library Exception; `gcc-runtime-LICENSE` |
 
 All license-file paths in the last three rows are relative to
 `third_party/tcpdump/`. Refer to each full notice for its applicable terms.
 GCC's runtime exception is included in the supplied file; the build uses an
 eligible GCC compilation process for the independent tcpdump/libpcap program.
 This does not relicense the GCC runtime itself.
+The historical `musl-arm-LICENSE` filename contains the full upstream
+musl 1.2.5 COPYRIGHT; it also covers MIPSEL built from the identical pinned
+archive. MIPSEL subset builds preserve the existing GCC notice and export
+the current Debian compiler notice separately into build artifacts for review.
 
 ## Source and binary provenance
 
 - `third_party/tcpdump/sources.json` pins official upstream URLs, versions, and
-  SHA-256 values. The tcpdump, libpcap, and ARM musl archives are included unchanged.
-- `third_party/tcpdump/binaries.json` pins the four static executable hashes,
+  SHA-256 values. The tcpdump, libpcap, and ARM/MIPSEL musl archives are included unchanged.
+- `third_party/tcpdump/binaries.json` pins the validated static executable hashes,
   architecture baselines, toolchains, and the libpcap compatibility-patch hash.
 - `third_party/tcpdump/patches/libpcap-ethtool-enotty.patch` is applied only in a
   temporary build tree; the upstream archives remain original.

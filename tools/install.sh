@@ -1,6 +1,50 @@
 #!/bin/sh
 set -eu
 umask 077
+fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# uname commonly reports simply "mips" on MT7621. Confirm the actual userland
+# ELF rather than guessing endianness from that label (or an opkg architecture).
+mipsel_target() {
+    command -v od >/dev/null 2>&1 || { echo 'ERROR: MIPS architecture detection requires od.' >&2; return 1; }
+    for elf in /bin/busybox /bin/sh; do
+        header=$(LC_ALL=C od -An -v -tu1 -N20 "$elf" 2>/dev/null) || continue
+        case "$header" in *[!0-9[:space:]]*) continue;; esac
+        set -- $header
+        [ "$#" -ge 4 ] || continue
+        [ "$1 $2 $3 $4" = '127 69 76 70' ] || continue
+        # A shell-script candidate may be skipped, but a recognized ELF is
+        # decisive: do not hide an incompatible BusyBox with a second file.
+        [ "$#" = 20 ] || { echo 'ERROR: Truncated MIPS userland ELF header.' >&2; return 1; }
+        shift 4
+        [ "$1 $2 $3" = '1 1 1' ] || { echo 'ERROR: MIPS requires ELF32 little-endian userland; big-endian and MIPS64 are unsupported.' >&2; return 1; }
+        shift 14
+        [ "$1 $2" = '8 0' ] || { echo 'ERROR: Userland ELF is not little-endian MIPS.' >&2; return 1; }
+        printf '%s\n' mipsel
+        return 0
+    done
+    echo 'ERROR: Cannot confirm MIPS userland ELF from /bin/busybox or /bin/sh.' >&2
+    return 1
+}
+
+select_target() {
+    case "$1" in
+        x86_64) printf '%s\n' x64;;
+        i?86) printf '%s\n' x86;;
+        aarch64|arm64) printf '%s\n' arm64;;
+        arm*) printf '%s\n' arm;;
+        mips|mipsel|mipsle) mipsel_target;;
+        *) echo 'ERROR: Unsupported CPU. Supported: ARM, ARM64, x86, x64, MIPS32 little-endian (MT7621).' >&2; return 1;;
+    esac
+}
+
+# Read-only diagnosis uses exactly the same selector as installation. It does
+# not require root, inspect an installation, create directories or stop services.
+if [ "${1:-}" = --print-target ]; then
+    [ "$#" = 1 ] || fail 'Supported options: --print-target, --check, --uninstall'
+    select_target "$(uname -m)"
+    exit $?
+fi
 DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 FILES='/usr/sbin/radarsender
 /usr/libexec/rpcd/radarsender
@@ -23,8 +67,7 @@ FILES='/usr/sbin/radarsender
 /usr/lib/radarsender/licenses/sources.json
 /usr/lib/radarsender/install.sh
 /usr/lib/radarsender/installed'
-fail() { echo "ERROR: $*" >&2; exit 1; }
-case "${1:-}" in ''|--check|--uninstall) ;; *) fail 'Supported options: --check, --uninstall';; esac
+case "${1:-}" in ''|--check|--uninstall) ;; *) fail 'Supported options: --print-target, --check, --uninstall';; esac
 [ "$(id -u)" = 0 ] || fail 'Run as root on the router.'
 if [ "${1:-}" = --uninstall ]; then
     [ -f /usr/lib/radarsender/installed ] || fail 'No standalone installation marker.'
@@ -40,10 +83,7 @@ fi
 [ -f /etc/openwrt_release ] || fail 'OpenWrt/iStoreOS is required.'
 for cmd in jsonfilter ubus sha256sum tar cp chmod mv; do command -v "$cmd" >/dev/null 2>&1 || fail "Missing dependency: $cmd"; done
 [ -x /etc/init.d/rpcd ] && [ -d /www/luci-static/resources ] && [ -d /usr/share/luci/menu.d ] && [ -d /usr/share/rpcd/acl.d ] || fail 'LuCI and rpcd are required.'
-case "$(uname -m)" in
-    x86_64) target=x64;; i?86) target=x86;; aarch64|arm64) target=arm64;; arm*) target=arm;;
-    *) fail 'Unsupported CPU. Supported: ARM, ARM64, x86, x64.';;
-esac
+target=$(select_target "$(uname -m)") || exit 1
 [ -f "$DIR/SHA256SUMS" ] || fail 'Run the original release installer.'
 (cd "$DIR" && sha256sum -c SHA256SUMS >/dev/null) || fail 'Package checksum validation failed.'
 BINARY=$DIR/targets/$target/radarsender
@@ -118,7 +158,7 @@ chmod 644 /usr/share/luci/menu.d/luci-app-radarsender.json /usr/share/rpcd/acl.d
 ln -sf /usr/sbin/radarsender /usr/libexec/rpcd/radarsender
 cp "$DIR/install.sh" /usr/lib/radarsender/install.sh
 chmod 755 /usr/lib/radarsender/install.sh
-printf '%s\n' 'radarsender-portable-0.1.5' >/usr/lib/radarsender/installed
+printf '%s\n' 'radarsender-portable-0.1.6' >/usr/lib/radarsender/installed
 if [ "$fresh" = 1 ] || [ "$was_enabled" = 1 ]; then /etc/init.d/radarsender enable; fi
 # Always run an idle health check, then restore a previously stopped service.
 /etc/init.d/radarsender start

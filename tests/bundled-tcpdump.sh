@@ -2,8 +2,8 @@
 # Local loopback traffic only; run in a fresh disposable Linux container.
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || exit 1
-BASE=/src/dist/0.1.5
-for arch in x64 x86 arm64 arm; do
+BASE=/src/dist/0.1.6
+for arch in x64 x86 arm64 arm mipsel; do
     capture=$BASE/$arch/tcpdump
     "$capture" --version >"/tmp/$arch-version.txt" 2>&1
     grep -q 'tcpdump version 4.99.7' "/tmp/$arch-version.txt"
@@ -13,6 +13,8 @@ for arch in x64 x86 arm64 arm; do
     cmp /src/tests/fixtures/ethernet.pcap "/tmp/$arch-offline.pcap"
     echo "PASS $arch: private static binary, versions, immediate mode, exact PCAP roundtrip"
 done
+# Foreign architectures in this optional script require registered binfmt.
+# CI uses explicit qemu-mipsel in mipsel-runtime.py instead.
 # Run live tests only for architectures supported by the native kernel.
 # QEMU user-mode cannot translate all PACKET_* socket operations.
 for arch in ${RADARSENDER_LIVE_TARGETS:-x64 x86}; do

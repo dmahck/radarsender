@@ -28,7 +28,7 @@ class BuiltPackages(unittest.TestCase):
             self.assertEqual(hashlib.sha256((OUT / name).read_bytes()).hexdigest(), expected, name)
 
     def test_wrappers_payloads_and_licenses(self):
-        for target in ("universal", "x64", "x86", "arm64", "arm"):
+        for target in ("universal", *build.TARGETS):
             with self.subTest(target=target):
                 folder = OUT if target == "universal" else OUT / target
                 installer = folder / f"luci-app-radarsender_{VERSION}_{target}.run"

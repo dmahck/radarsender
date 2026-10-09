@@ -13,7 +13,7 @@ import (
 	"radarsender/internal/radarupload"
 )
 
-const Version = "0.1.5"
+const Version = "0.1.6"
 
 type Config struct {
 	Interface string `json:"-"` // Resolved per attempt; never loaded from legacy configuration.
