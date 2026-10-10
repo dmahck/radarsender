@@ -159,7 +159,7 @@ chmod 644 /usr/share/luci/menu.d/luci-app-radarsender.json /usr/share/rpcd/acl.d
 ln -sf /usr/sbin/radarsender /usr/libexec/rpcd/radarsender
 cp "$DIR/install.sh" /usr/lib/radarsender/install.sh
 chmod 755 /usr/lib/radarsender/install.sh
-printf '%s\n' 'radarsender-portable-0.1.6' >/usr/lib/radarsender/installed
+printf '%s\n' 'radarsender-portable-0.1.7' >/usr/lib/radarsender/installed
 if [ "$fresh" = 1 ] || [ "$was_enabled" = 1 ]; then /etc/init.d/radarsender enable; fi
 # Always run an idle health check, then restore a previously stopped service.
 /etc/init.d/radarsender start

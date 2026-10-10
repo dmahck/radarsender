@@ -203,18 +203,178 @@ func TestNetworkRetryPreservesIdentityAndCounters(t *testing.T) {
 		t.Fatal("stop lost totals")
 	}
 }
-func TestAuthorizationFailureDoesNotLoop(t *testing.T) {
+func TestAuthorizationFailureWaitsForChangedChannelAndResumes(t *testing.T) {
+	for _, failure := range []struct {
+		name string
+		err  error
+	}{{"unauthorized", radarupload.ErrAuth}, {"forbidden", radarupload.ErrForbidden}} {
+		t.Run(failure.name, func(t *testing.T) {
+			s := configured(t)
+			s.retry = time.Millisecond
+			oldChannel := "http://192.0.2.1:18880#test-private-card"
+			newChannel := "http://192.0.2.1:18880#fixture-updated-card"
+			var calls atomic.Int32
+			var firstID string
+			resumed := make(chan struct{}, 1)
+			s.attempt = func(ctx context.Context, c Config, id string, retry bool, ready func(), report func(Counters)) (Counters, error) {
+				if calls.Add(1) == 1 {
+					firstID = id
+					if c.Channel != oldChannel || retry {
+						t.Error("initial authentication attempt changed channel or allowed existing input")
+					}
+					return Counters{Packets: 3, Bytes: 180}, failure.err
+				}
+				if c.Channel != newChannel || retry || id == "" || id == firstID {
+					t.Error("updated channel reused stale credentials, sender identity, or retry privileges")
+				}
+				report(Counters{Packets: 2, Bytes: 120})
+				ready()
+				resumed <- struct{}{}
+				<-ctx.Done()
+				return Counters{Packets: 2, Bytes: 120}, nil
+			}
+			if err := s.Start(); err != nil {
+				t.Fatal(err)
+			}
+			waiting := waitState(t, s, "waiting_channel")
+			if waiting.Attempts != 1 || waiting.Errors != 1 || waiting.Packets != 3 || waiting.Error != failure.err.Error() || waiting.RetrySeconds != 0 {
+				t.Fatal("authorization wait lost counters or scheduled retry")
+			}
+			s.mu.Lock()
+			capture := s.capture
+			s.mu.Unlock()
+			if capture == nil || s.Start() == nil {
+				t.Fatal("authorization wait discarded active session or allowed a duplicate start")
+			}
+			assertWaiting := func() {
+				t.Helper()
+				time.Sleep(25 * time.Millisecond) // More than twenty retry periods.
+				v := s.Snapshot()
+				if v.State != "waiting_channel" || calls.Load() != 1 || v.Attempts != 1 || v.Packets != 3 || v.Errors != 1 || v.Error != failure.err.Error() {
+					t.Fatal("unchanged or rejected configuration woke the expired channel")
+				}
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				if s.capture != capture || s.config.Channel != oldChannel {
+					t.Fatal("authorization wait replaced capture or the persisted channel")
+				}
+			}
+			assertWaiting()
+			for _, c := range []Config{Defaults(), {Channel: oldChannel}} {
+				if err := s.Configure(c); err != nil {
+					t.Fatal(err)
+				}
+				assertWaiting()
+			}
+			path := filepath.Join(s.dir, "config.json")
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Configure(Config{Channel: "invalid-fixture-channel"}); err == nil {
+				t.Fatal("invalid channel accepted while waiting")
+			}
+			assertWaiting()
+			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(before, after) {
+				t.Fatal("invalid channel changed persisted configuration")
+			}
+			// A directory at the atomic rename destination forces save failure on
+			// every platform, including container root, without chmod assumptions.
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(path, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Configure(Config{Channel: newChannel}); err == nil {
+				t.Fatal("failed persistence woke the new channel")
+			}
+			assertWaiting()
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, before, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Configure(Config{Channel: newChannel}); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-resumed:
+			case <-time.After(2 * time.Second):
+				t.Fatal("persisted changed channel did not resume without another Start")
+			}
+			v := waitState(t, s, "sending")
+			if v.Packets != 5 || v.Bytes != 300 || v.Errors != 1 || v.Attempts != 2 || calls.Load() != 2 {
+				t.Fatal("resuming with a changed channel reset session counters")
+			}
+			s.mu.Lock()
+			if s.capture != capture {
+				t.Error("resuming changed the capture session")
+			}
+			s.mu.Unlock()
+			loaded := New(s.dir)
+			if loaded.config.Channel != newChannel || loaded.Snapshot().State != "idle" {
+				t.Fatal("changed channel was not durably saved or autostarted after restart")
+			}
+			s.Stop()
+			v = waitState(t, s, "idle")
+			if v.Packets != 5 || v.Bytes != 300 || v.Attempts != 2 || v.Errors != 1 {
+				t.Fatal("stop after authorization recovery lost session totals")
+			}
+		})
+	}
+}
+
+func TestAuthorizationWaitStopAndCloseArePrompt(t *testing.T) {
+	for _, action := range []string{"stop", "close"} {
+		t.Run(action, func(t *testing.T) {
+			s := configured(t)
+			s.retry = 30 * time.Second
+			s.attempt = func(context.Context, Config, string, bool, func(), func(Counters)) (Counters, error) {
+				return Counters{}, radarupload.ErrAuth
+			}
+			if err := s.Start(); err != nil {
+				t.Fatal(err)
+			}
+			waitState(t, s, "waiting_channel")
+			if action == "stop" {
+				s.Stop()
+			} else {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				if err := s.Close(ctx); err != nil {
+					t.Fatal("close did not interrupt channel wait:", err)
+				}
+			}
+			v := waitState(t, s, "idle")
+			if v.Attempts != 1 || v.Errors != 1 || v.Capturing {
+				t.Fatal("channel-wait cancellation lost totals or left capture active")
+			}
+		})
+	}
+}
+
+func TestCaptureFailureWhileWaitingForChannelIsTerminal(t *testing.T) {
 	s := configured(t)
-	s.retry = time.Millisecond
+	failed := make(chan struct{})
 	s.attempt = func(context.Context, Config, string, bool, func(), func(Counters)) (Counters, error) {
+		s.capture.mu.Lock()
+		s.capture.done = failed
+		s.capture.mu.Unlock()
 		return Counters{}, radarupload.ErrAuth
 	}
 	if err := s.Start(); err != nil {
 		t.Fatal(err)
 	}
+	waitState(t, s, "waiting_channel")
+	s.capture.mu.Lock()
+	s.capture.err = radarupload.ErrCapture
+	s.capture.mu.Unlock()
+	close(failed)
 	v := waitState(t, s, "error")
-	if v.Attempts != 1 || v.Errors != 1 || v.Error != radarupload.ErrAuth.Error() {
-		t.Fatal("authentication failure not terminal")
+	if v.Error != radarupload.ErrCapture.Error() || v.Attempts != 1 || v.Errors != 1 || v.Capturing {
+		t.Fatal("capture failure was hidden by authentication wait or retried")
 	}
 }
 func TestStopInterruptsBackoff(t *testing.T) {
@@ -260,5 +420,32 @@ func TestManagementRejectsMalformedAndOversizeRequests(t *testing.T) {
 	s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/rpc", strings.NewReader(`{"method":"status"}`)))
 	if w.Code != 200 || strings.Contains(w.Body.String(), "test-private-card") {
 		t.Fatal("status failed or exposed credential")
+	}
+}
+
+func TestChannelRPCIntentionallyReturnsOnlyChannelWithoutCaching(t *testing.T) {
+	s := configured(t)
+	if _, ok := Methods["channel"]; !ok {
+		t.Fatal("privileged channel method not registered")
+	}
+	for _, method := range []string{"channel", "status"} {
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/rpc", strings.NewReader(`{"method":"`+method+`"}`)))
+		if w.Code != http.StatusOK || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Content-Type") != "application/json" {
+			t.Fatal("management response permits caching or has wrong content type")
+		}
+		if method == "status" {
+			if bytes.Contains(w.Body.Bytes(), []byte("test-private-card")) {
+				t.Fatal("status exposed the private channel")
+			}
+			continue
+		}
+		var response map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		if len(response) != 2 || response["ok"] != true || response["channel"] != "http://192.0.2.1:18880#test-private-card" {
+			t.Fatal("channel RPC returned extra private state or did not return the configured channel")
+		}
 	}
 }

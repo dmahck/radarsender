@@ -34,7 +34,7 @@ jobs:
             sh /src/tests/ipk-opkg-fixture.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: radarsender-ipk-0.1.6-2
-          path: dist/ipk/0.1.6-2/
+          name: radarsender-ipk-0.1.7-1
+          path: dist/ipk/0.1.7-1/
           if-no-files-found: error
           retention-days: 14

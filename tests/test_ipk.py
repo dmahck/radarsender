@@ -20,8 +20,8 @@ spec = importlib.util.spec_from_file_location("radarsender_ipk_build", ROOT / "t
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 OUT = Path(build.OUT)
-VERSION = "0.1.6-2"
-RELEASE = "0.1.6"
+VERSION = "0.1.7-1"
+RELEASE = "0.1.7"
 BUNDLE_BASE = Path(os.environ.get("RADARSENDER_IPK_BUNDLE_BASE", getattr(build, "BUNDLE_BASE", ROOT / "dist" / RELEASE)))
 TARGETS = {"mipsel_24kc": ("mipsel", 1, 8), "x86_64": ("x64", 2, 62)}
 DEPENDENCIES = {"luci-base", "rpcd", "procd", "jsonfilter", "ubus"}
@@ -181,6 +181,23 @@ class BuiltIPK(unittest.TestCase):
                         self.assertNotRegex(script, r"(?<![A-Za-z0-9_])od(?![A-Za-z0-9_])", name)
                         for portable_probe in ("select_target", "elf_target", "probe"):
                             self.assertNotIn(portable_probe, script.lower(), name)
+
+    def test_distributed_rpc_acl_keeps_channel_write_only(self):
+        # Inspect the actual distributed ACL, not just the checked-in source.
+        # No saved configuration or real credential is read by this test.
+        acl_path = "usr/share/rpcd/acl.d/luci-app-radarsender.json"
+        for architecture in TARGETS:
+            with self.subTest(architecture=architecture):
+                _, rawfiles = read_tar(self.package(architecture)["data.tar.gz"])
+                files = {normalized(name): data for name, data in rawfiles.items()}
+                acl = json.loads(files[acl_path])["luci-app-radarsender"]
+                read_methods = acl["read"]["ubus"]["radarsender"]
+                write_methods = acl["write"]["ubus"]["radarsender"]
+                self.assertEqual(read_methods, ["status"])
+                self.assertEqual(set(write_methods), {"channel", "configure", "start", "stop"})
+                self.assertEqual(len(write_methods), 4)
+                self.assertNotIn("channel", read_methods)
+                self.assertNotIn("*", read_methods)
 
     def test_data_paths_modes_licenses_and_release_provenance(self):
         self.assertEqual(self.release_manifest["version"], RELEASE)

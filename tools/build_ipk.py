@@ -1,4 +1,4 @@
-"""Build real opkg IPKs from validated 0.1.6 standalone bundle bytes."""
+"""Build real opkg IPKs from validated 0.1.7 standalone bundle bytes."""
 import argparse
 import gzip
 import hashlib
@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("radarsender_portable_build", ROOT / "tools" / "build.py")
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
-VERSION = "0.1.6"
-PACKAGE_VERSION = VERSION + "-2"
+VERSION = "0.1.7"
+PACKAGE_VERSION = VERSION + "-1"
 PACKAGE = "luci-app-radarsender"
 BUNDLE_BASE = Path(os.environ.get("RADARSENDER_IPK_BUNDLE_BASE", ROOT / "dist" / VERSION))
 OUT = ROOT / "dist" / "ipk" / PACKAGE_VERSION

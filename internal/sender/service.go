@@ -13,7 +13,7 @@ import (
 	"radarsender/internal/radarupload"
 )
 
-const Version = "0.1.6"
+const Version = "0.1.7"
 
 type Config struct {
 	Interface string `json:"-"` // Resolved per attempt; never loaded from legacy configuration.
@@ -60,17 +60,18 @@ type Status struct {
 }
 type attemptFunc func(context.Context, Config, string, bool, func(), func(Counters)) (Counters, error)
 type Service struct {
-	mu      sync.Mutex
-	dir     string
-	config  Config
-	status  Status
-	cancel  context.CancelFunc
-	done    chan struct{}
-	attempt attemptFunc
-	capture *captureSession
-	detect  func(context.Context) (string, error)
-	retry   time.Duration
-	closed  bool
+	mu             sync.Mutex
+	dir            string
+	config         Config
+	status         Status
+	cancel         context.CancelFunc
+	done           chan struct{}
+	channelChanged chan struct{}
+	attempt        attemptFunc
+	capture        *captureSession
+	detect         func(context.Context) (string, error)
+	retry          time.Duration
+	closed         bool
 }
 
 func New(dir string) *Service {
@@ -118,7 +119,8 @@ func (s *Service) Snapshot() Status {
 func (s *Service) Configure(c Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.cancel != nil || s.closed {
+	waiting := s.cancel != nil && s.status.State == "waiting_channel"
+	if s.closed || (s.cancel != nil && !waiting) {
 		return errors.New("请先断开发送再修改设置")
 	}
 	if c.Channel == "" {
@@ -128,12 +130,34 @@ func (s *Service) Configure(c Config) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
+	// Empty/unchanged input must not wake a rejected credential or clear its state.
+	if waiting && c.Channel == s.config.Channel {
+		return nil
+	}
 	if err := saveConfig(s.dir, c); err != nil {
 		return errors.New("配置保存失败，请检查配置目录权限及剩余空间")
 	}
 	s.config = c
-	s.status.ConfigError, s.status.Error, s.status.State = "", "", "idle"
+	s.status.ConfigError, s.status.Error = "", ""
+	if waiting {
+		s.status.State, s.status.RetrySeconds = "connecting", 0
+		// One wake per task; commit configuration before publishing the wake.
+		select {
+		case s.channelChanged <- struct{}{}:
+		default:
+		}
+	} else {
+		s.status.State = "idle"
+	}
 	return nil
+}
+
+// Channel is intentionally separate from status. rpcd grants this method only
+// to administrators with write permission; the local socket is root-private.
+func (s *Service) Channel() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.config.Channel
 }
 
 func saveConfig(dir string, c Config) error {
@@ -190,6 +214,7 @@ func (s *Service) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	s.cancel, s.done = cancel, done
+	s.channelChanged = make(chan struct{}, 1)
 	s.capture = &captureSession{parent: ctx}
 	s.status = Status{OK: true, Version: Version, State: "connecting"}
 	go s.run(ctx, s.config, id, done)
@@ -237,7 +262,7 @@ func (s *Service) run(ctx context.Context, c Config, id string, done chan struct
 			s.status.State, s.status.Error = "error", final.Error()
 		}
 		s.cancel()
-		s.cancel, s.done = nil, nil
+		s.cancel, s.done, s.channelChanged = nil, nil, nil
 		close(done)
 	}()
 	totals := Counters{}
@@ -283,6 +308,48 @@ func (s *Service) run(ctx context.Context, c Config, id string, done chan struct
 		}
 		if counts.Errors == 0 {
 			totals.Errors++
+		}
+		if errors.Is(err, radarupload.ErrAuth) || errors.Is(err, radarupload.ErrForbidden) {
+			s.mu.Lock()
+			s.status.Counters = totals
+			if ctx.Err() != nil {
+				s.mu.Unlock()
+				return
+			}
+			s.status.State, s.status.Error, s.status.RetrySeconds = "waiting_channel", err.Error(), 0
+			changed := s.channelChanged
+			s.mu.Unlock()
+			// Capture keeps discarding and counting offline frames. No requests
+			// are made with the rejected credential until configuration changes.
+			select {
+			case <-ctx.Done():
+				return
+			case <-s.capture.finished():
+				if ctx.Err() != nil {
+					return
+				}
+				final = s.capture.failure()
+				if final == nil {
+					final = errors.New("本地采集已停止，请检查 LAN 接口")
+				}
+				return
+			case <-changed:
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			s.mu.Lock()
+			c = s.config
+			s.mu.Unlock()
+			// A replacement credential can identify another account. Start a
+			// fresh identity and never apply same-session takeover to that account.
+			id, err = radarupload.NewSenderID()
+			if err != nil {
+				final = errors.New("无法生成连接标识")
+				return
+			}
+			uploadAttempted = false
+			continue
 		}
 		if !retryable(err) {
 			s.mu.Lock()

@@ -1,10 +1,16 @@
-# RadarSender 0.1.6
+# RadarSender 0.1.7
 
 独立软路由雷达发射端。只采集并发送 Ethernet PCAP，不依赖旧版 RouterCapture 配置、SMB、存盘、设备识别或握手组件。
 
 原项目及交付包保持原样。独立程序使用 radarsender 服务、/etc/radarsender 配置和 /var/run/radarsender/control.sock。
 
-## 0.1.6 更新
+## 0.1.7 更新
+
+网络中断继续保留任务和采集；认证返回 401／403 时进入等待有效通道状态，保留任务和采集，不自动重试已经失效的凭据。等待期间保存不同的有效通道会自动恢复，使用新的 sender ID，且不接管其他发送端的现有输入。离线／认证等待期间立即丢弃副本并计数，不重放旧包。新增受保护的通道读取 RPC，供管理页面显示已保存的完整通道；普通 `status` 仍不返回凭据。
+
+发布运行版本为 0.1.7，MT7621 IPK 修订为 0.1.7-1，保留精简固件无 `od` 的兼容修复。服务重启仍只进入 idle 管理状态，不自动恢复发送；仅 401／403 进入通道等待，本地采集故障、输入冲突（409）、格式或协议错误、重定向等不可恢复错误仍会结束任务，不承诺永不停止。
+
+## 0.1.6 更新（历史）
 
 新增第五架构 `mipsel`，面向 MT7621，使用 MIPS32r2 little-endian／软件浮点基线。安装器核对实际用户态 ELF，拒绝 big-endian MIPS、MIPS64 和错误架构；随后以随包二进制自检确认能否运行。交叉编译或 QEMU 运行不等于目标设备吞吐、抓包覆盖和低丢包验收。保留原有实时发送策略。
 
@@ -20,8 +26,8 @@
 
 ## 与原版的区别
 
-- 只保留通道认证、Ethernet PCAP 发送、网络重连、停止确认和状态查询。
-- 独立 LuCI 菜单「雷达发射（独立版）」，只有一个通道输入框和一个连接／断开按钮，连接时自动保存。
+- 保留通道认证、Ethernet PCAP 发送、网络重连、认证失效等待、停止确认和状态查询。
+- 独立 LuCI 菜单「雷达发射（独立版）」，显示已保存的完整通道，提供通道编辑保存和连接／断开操作；认证等待时保存不同通道会自动恢复。
 - 不需要 SMB/CIFS、共享账号、抓包保存、游戏识别、UDP 镜像或握手/密钥组件。
 - 不修改旧版 routercapture 文件或配置，也不自动启动旧版或复用其通道。
 - 配置损坏不会阻止管理后台启动：页面显示具体配置错误，重新输入通道并点击连接即可修复。
@@ -29,19 +35,19 @@
 
 ## 安装
 
-MT7621 的 `opkg` 固件若使用 LuCI 软件包管理器，请上传 `luci-app-radarsender_0.1.6-2_mipsel_24kc.ipk`。此修订不依赖 `od`，架构由 opkg 校验；不要使用 `--force-architecture`。这是实际登记到 opkg 的 IPK，卸载执行 `opkg remove luci-app-radarsender`，保留私有配置。不能与 portable 安装同时管理同一组文件；先断开并卸载 portable，再安装 IPK。IPK hook 失败由 opkg 报告未配置状态，不具备 portable 事务回滚保证；不适用于 `apk` 固件。
+MT7621 的 `opkg` 固件若使用 LuCI 软件包管理器，请上传 `luci-app-radarsender_0.1.7-1_mipsel_24kc.ipk`。此修订不依赖 `od`，架构由 opkg 校验；不要使用 `--force-architecture`。这是实际登记到 opkg 的 IPK，卸载执行 `opkg remove luci-app-radarsender`，保留私有配置。不能与 portable 安装同时管理同一组文件；先断开并卸载 portable，再安装 IPK。IPK hook 失败由 opkg 报告未配置状态，不具备 portable 事务回滚保证；不适用于 `apk` 固件。
 
-终端安装可用 `dist/0.1.6/luci-app-radarsender_0.1.6_universal.run`，支持 ARM、ARM64、x86、x64、MIPS32 little-endian（`mipsel`）。`.run` **不能通过 opkg 软件包上传页面安装**，不要改名为 `.ipk`；上传到 `/tmp` 后在路由器终端执行：
+终端安装可用 `dist/0.1.7/luci-app-radarsender_0.1.7_universal.run`，支持 ARM、ARM64、x86、x64、MIPS32 little-endian（`mipsel`）。`.run` **不能通过 opkg 软件包上传页面安装**，不要改名为 `.ipk`；上传到 `/tmp` 后在路由器终端执行：
 
 ```sh
-sh /tmp/luci-app-radarsender_0.1.6_universal.run --verify
-sh /tmp/luci-app-radarsender_0.1.6_universal.run --check
-sh /tmp/luci-app-radarsender_0.1.6_universal.run
+sh /tmp/luci-app-radarsender_0.1.7_universal.run --verify
+sh /tmp/luci-app-radarsender_0.1.7_universal.run --check
+sh /tmp/luci-app-radarsender_0.1.7_universal.run
 ```
 
 需要现有 LuCI、rpcd、procd、jsonfilter 和 ubus。已内置静态 tcpdump 4.99.7 与 libpcap 1.11.0，不需要通过 opkg/apk 安装 tcpdump 或 libpcap，也不需要共享库、CIFS 或 firewall4。安装器不会联网下载依赖。MIPS 仅支持 ELF32 little-endian 用户态，面向 MT7621；不支持 big-endian MIPS 或 MIPS64，portable 安装器的架构识别还需要 `od`；IPK 不需要。
 
-空间紧张的 MT7621 设备可选择 `luci-app-radarsender_0.1.6_mipsel.run`，其他设备可选择对应 `_arm.run`、`_arm64.run`、`_x86.run` 或 `_x64.run`；单架构包与通用包采用同样的校验、预检和安装流程，缺少本机架构时在修改文件前拒绝安装。
+空间紧张的 MT7621 设备可选择 `luci-app-radarsender_0.1.7_mipsel.run`，其他设备可选择对应 `_arm.run`、`_arm64.run`、`_x86.run` 或 `_x64.run`；单架构包与通用包采用同样的校验、预检和安装流程，缺少本机架构时在修改文件前拒绝安装。
 
 这是独立 portable 安装包，不注册为 opkg/apk 包。安装前校验全部文件；升级自己的版本时需要先断开发送，保留配置，安装失败会尝试恢复旧文件。旧 RouterCapture 可以保留用于本地保存，但同一通道不能同时运行两个发送端。
 
@@ -51,11 +57,11 @@ sh /tmp/luci-app-radarsender_0.1.6_universal.run
 
 安装器按 CPU 选择随包的静态程序，安装到 `/usr/lib/radarsender/tcpdump`，安装前验证可执行性与 `--immediate-mode` 支持。发送端优先使用这个私有程序；仅当文件不存在时才回退到系统 tcpdump。内置文件损坏或权限错误会明确报错，不会静默切换。
 
-不替换、不卸载系统已有 tcpdump。升级失败会恢复私有程序，卸载只删除独立版文件并保留通道配置。许可证和来源记录安装在 `/usr/lib/radarsender/licenses/`。
+不替换、不卸载系统已有 tcpdump。portable 升级失败会尝试恢复私有程序；IPK 由 opkg 管理，不提供此事务回滚保证。卸载只删除独立版文件并保留通道配置。许可证和来源记录安装在 `/usr/lib/radarsender/licenses/`。
 
 五种架构的私有 tcpdump 均静态链接 musl/libpcap，Go 发送端禁用 CGO；不依赖固件的动态加载器和 libc 版本。ARM 使用 ARMv5TE 软件浮点基线，ARM64 使用 ARMv8-A 基线，x86 使用 Pentium 4 基线，x64 使用 x86-64 基线；MIPS tcpdump 使用 MIPS32r2 little-endian／软件浮点基线，Go 发送端使用 `GOARCH=mipsle GOMIPS=softfloat`。实际运行仍需要固件内核支持包捕获，并具备抓包权限；静态编译不能保证所有固件实机都兼容。
 
-`uname -m` 在 MT7621 上可能显示 `mips`，不能据此判断端序。安装器读取 `/bin/busybox` 或 `/bin/sh` 实际 ELF 的位数、端序与 machine 字段，脚本或不存在的候选才回退到下一个；已有但不兼容的 ELF 不会被另一个候选掩盖。ELF 识别后仍需二进制运行预检，不能仅靠通用 MIPS 标签判断 ISA 兼容。
+`uname -m` 在 MT7621 上可能显示 `mips`，不能据此判断端序。portable 安装器读取 `/bin/busybox` 或 `/bin/sh` 实际 ELF 的位数、端序与 machine 字段，脚本或不存在的候选才回退到下一个；已有但不兼容的 ELF 不会被另一个候选掩盖。ELF 识别后仍需二进制运行预检，不能仅靠通用 MIPS 标签判断 ISA 兼容。IPK 不执行此探测，使用 opkg 的精确架构匹配。
 
 ## 自动 LAN 与全速发送
 
@@ -81,7 +87,13 @@ MIPS 新增架构支持不代表 MT7621 能承载任意捕获速率。实机对�
 
 本版不自动更改防火墙或流量加速设置。要完整观察经过路由器的流量，应在路由器界面关闭相关软件/硬件流量加速；厂商 NSS/SFE/PPE 也需单独确认。旁路、交换机内部转发以及不经过所选接口的流量无法保证采集。
 
-服务器离线不会停止本地抓包进程。点击连接后先启动采集，再建立 HTTP 上传；连接失败后固定等待 2 秒重试（另加本次连接或网络超时），直到恢复或手动断开。服务器恢复后使用同一采集进程继续上传，不重放旧包。LAN 设备确实改变时才替换采集进程。认证失效、输入冲突、格式错误和本地采集故障仍会停止并显示原因。重连沿用本次会话的 sender ID。
+网络中断不会主动停止本地抓包进程。点击连接后先启动采集，再建立 HTTP 上传；网络错误后固定等待 2 秒重试（另加本次连接或网络超时），直到恢复或手动断开。服务器恢复后使用同一采集进程继续上传，不重放旧包。LAN 设备确实改变时才替换采集进程；普通网络重连沿用本次会话的 sender ID。
+
+### 认证失效与更换通道
+
+认证返回 401／403 后保留任务和采集，显示等待有效通道；此时不自动重试旧凭据，不把采集计数算成发送成功。等待期间在管理页面保存**不同的有效通道**，配置原子保存成功后自动发起新的认证和上传，使用新的 sender ID，首次连接不允许接管其他发送端的输入。重复保存同一失效通道不会恢复；若新通道也被拒绝，继续等待再次更换。
+
+等待期间的包立即丢弃并累计离线丢包，不写盘、不无限缓存、不重放。可随时主动断开；重启服务会结束任务并回到 idle。采集故障、输入冲突（409）、格式或协议错误、重定向等不可恢复错误仍会结束任务并显示原因。仅 401／403 进入通道等待，认证等待不是任何故障都无限重试，也不是“永不停止”。
 
 离线期间立即丢弃数据并累计采集数、离线丢包数，不写磁盘、不无限缓存。界面显示“持续采集中，等待服务器”，不把离线采集算作发送成功。此版本仍使用现有 HTTP/TCP 协议；服务器无连接时不能实际送达数据。若需要无视连接状态的 UDP 盲发，必须配套修改接收协议。
 
@@ -98,6 +110,8 @@ sh /usr/lib/radarsender/install.sh --uninstall
 ```
 
 服务重启会断开发送。卸载保留 `/etc/radarsender/config.json`，其中含连接通道，不要公开文件内容。配置与控制目录权限为 700，配置及控制 socket 权限为 600。普通状态权限不允许修改设置、启动或停止。
+
+完整通道仅通过 root 私有 UNIX socket 和 LuCI 写管理 ACL 保护的 `channel` RPC 读取，普通 `status` 继续隐藏凭据。管理页面以明文展示已保存通道；不要把页面、共享屏幕或 RPC 响应公开。程序不把通道写入日志；请勿自行添加会记录该响应的诊断命令。
 
 `--print-target` 只读显示安装架构，不要求 root，不创建安装目录或启动／停止服务。它与安装使用同一架构判断，但不会替代 `.run --check` 对依赖、校验和程序可运行性的完整预检。
 

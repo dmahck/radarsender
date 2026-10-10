@@ -2,7 +2,7 @@
 # Local loopback traffic only; run in a fresh disposable Linux container.
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || exit 1
-BASE=/src/dist/0.1.6
+BASE=/src/dist/0.1.7
 for arch in x64 x86 arm64 arm mipsel; do
     capture=$BASE/$arch/tcpdump
     "$capture" --version >"/tmp/$arch-version.txt" 2>&1

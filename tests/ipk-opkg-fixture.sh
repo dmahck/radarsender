@@ -10,7 +10,7 @@ case "$BUILD_ROOT" in /tmp/radarsender-opkg|/tmp/radarsender-opkg-*) ;; *) echo 
 OPKG=$BUILD_ROOT/bin/opkg
 [ -x "$OPKG" ] || sh "$HERE/build-opkg.sh"
 PACKAGE_NAME=luci-app-radarsender
-VERSION=0.1.6-2
+VERSION=0.1.7-1
 PACKAGES=${RADARSENDER_TEST_IPK_DIR:-/src/dist/ipk/$VERSION}
 NATIVE=$PACKAGES/${PACKAGE_NAME}_${VERSION}_x86_64.ipk
 FOREIGN=$PACKAGES/${PACKAGE_NAME}_${VERSION}_mipsel_24kc.ipk
@@ -158,7 +158,7 @@ for file in /usr/sbin/radarsender /usr/lib/radarsender/tcpdump /etc/init.d/radar
     grep -Fxq "$file" "/usr/lib/opkg/info/$PACKAGE_NAME.list" || fail "opkg did not register $file"
 done
 [ ! -e /usr/lib/radarsender/installed ] && [ ! -e /usr/lib/radarsender/install.sh ] || fail 'IPK contains portable ownership/uninstaller'
-[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.6"}' ]
+[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.7"}' ]
 /usr/lib/radarsender/tcpdump --version | grep -q 'tcpdump version 4.99.7'
 test -L /usr/libexec/rpcd/radarsender
 [ "$(readlink /usr/libexec/rpcd/radarsender)" = /usr/sbin/radarsender ]
@@ -176,8 +176,8 @@ config_before=$(find /etc/radarsender -type f -exec sha256sum {} \; | sort)
 # upgrade path and PKG_UPGRADE, not --force-reinstall (which removes/reinstalls).
 # It proves hook lifecycle behavior, not cross-version binary/config migration.
 /etc/init.d/radarsender disable
-sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-1/;}" /usr/lib/opkg/status
-opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-1$'
+sed -i "/^Package: $PACKAGE_NAME\$/,/^\$/{s/^Version: $VERSION\$/Version: 0.1.6-2/;}" /usr/lib/opkg/status
+opkg status "$PACKAGE_NAME" | grep -q '^Version: 0.1.6-2$'
 : >/tmp/ipk-fixture-service-actions
 opkg install "$NATIVE"
 opkg status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
@@ -217,7 +217,7 @@ host_actions=$(sha256sum /tmp/ipk-fixture-service-actions /tmp/ipk-fixture-rpcd-
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -Eq '^Status: install (ok|user) installed$'
 "$OPKG" --conf "$offline/etc/opkg.conf" --offline-root "$offline" status "$PACKAGE_NAME" | grep -q '^Architecture: mipsel_24kc$'
 for file in usr/sbin/radarsender usr/lib/radarsender/tcpdump; do
-    [ "$(sha256sum "$offline/$file" | awk '{print $1}')" = "$(sha256sum "/src/dist/0.1.6/mipsel/$(basename "$file")" | awk '{print $1}')" ] || fail "offline ELF hash mismatch: $file"
+    [ "$(sha256sum "$offline/$file" | awk '{print $1}')" = "$(sha256sum "/src/dist/0.1.7/mipsel/$(basename "$file")" | awk '{print $1}')" ] || fail "offline ELF hash mismatch: $file"
     [ "$("$od_saved" -An -v -tu1 -N6 "$offline/$file" | xargs)" = '127 69 76 70 1 1' ] || fail "offline executable is not ELF32 little-endian: $file"
 done
 [ "$host_actions" = "$(sha256sum /tmp/ipk-fixture-service-actions /tmp/ipk-fixture-rpcd-actions)" ] || fail 'offline install executed host hooks'

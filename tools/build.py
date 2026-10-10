@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 OUT = ROOT / "dist" / VERSION
 VENDOR = ROOT / "third_party" / "tcpdump"
 TARGETS = {

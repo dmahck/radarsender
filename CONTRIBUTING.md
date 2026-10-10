@@ -40,7 +40,7 @@ CI 的 MIPS 测试使用显式 `qemu-mipsel`，无需注册 binfmt。在可丢�
 mkdir -p artifacts
 CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/sender-mipsel-tests ./internal/sender
 CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go test -c -o artifacts/radarupload-mipsel-tests ./internal/radarupload
-sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.6/mipsel \
+sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.7/mipsel \
   --testbin artifacts/sender-mipsel-tests \
   --upload-testbin artifacts/radarupload-mipsel-tests
 ```

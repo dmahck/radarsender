@@ -8,6 +8,7 @@ import (
 
 var Methods = map[string]any{
 	"status":    map[string]any{},
+	"channel":   map[string]any{},
 	"configure": map[string]any{"channel": ""},
 	"start":     map[string]any{},
 	"stop":      map[string]any{},
@@ -47,6 +48,9 @@ func (s *Service) Handler() http.Handler {
 		switch req.Method {
 		case "status":
 			respond(s.Snapshot())
+			return
+		case "channel":
+			respond(map[string]any{"ok": true, "channel": s.Channel()})
 			return
 		case "configure":
 			var c Config

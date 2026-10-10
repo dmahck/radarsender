@@ -2,7 +2,7 @@
 # Disposable-container test doubles for OpenWrt init/rpcd, not real firmware.
 set -eu
 [ -f /.dockerenv ] && [ "${RADARSENDER_FIXTURE_CONTAINER:-}" = 1 ] || { echo 'Disposable test container required.'; exit 1; }
-PACKAGE=${RADARSENDER_TEST_PACKAGE:-/src/dist/0.1.6/luci-app-radarsender_0.1.6_universal.run}
+PACKAGE=${RADARSENDER_TEST_PACKAGE:-/src/dist/0.1.7/luci-app-radarsender_0.1.7_universal.run}
 mkdir -p /etc/init.d /etc/rc.d /usr/share/luci/menu.d /usr/share/rpcd/acl.d /www/luci-static/resources /usr/libexec/rpcd
 printf 'fixture-only\n' >/etc/openwrt_release
 printf 'OLD-SENDER-UNTOUCHED\n' >/usr/sbin/routercapture
@@ -46,7 +46,7 @@ chmod 755 /usr/bin/jsonfilter /usr/bin/ubus /etc/init.d/rpcd /etc/rc.common
 if command -v tcpdump >/dev/null 2>&1; then echo 'FAIL: fixture must start without system tcpdump'; exit 1; fi
 sh "$PACKAGE" --check
 sh "$PACKAGE"
-[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.6"}' ]
+[ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.7"}' ]
 [ -f /usr/lib/radarsender/installed ]
 test -L /usr/libexec/rpcd/radarsender
 /usr/sbin/radarsender call status </dev/null | grep -q '"ok":true'
@@ -117,7 +117,7 @@ if [ -n "${RADARSENDER_PREVIOUS_PACKAGE:-}" ]; then
     [ ! -e /usr/lib/radarsender/tcpdump ]
     [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.2"}' ]
     sh "$PACKAGE"
-    [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.6"}' ]
+    [ "$(/usr/sbin/radarsender version)" = '{"version":"0.1.7"}' ]
     /usr/lib/radarsender/tcpdump --version | grep -q 'tcpdump version 4.99.7'
     grep -q main_v0_1_2 /usr/share/luci/menu.d/luci-app-radarsender.json
     /usr/sbin/radarsender call status </dev/null | grep -q '"has_channel":true'
@@ -128,5 +128,5 @@ if [ -n "${RADARSENDER_PREVIOUS_PACKAGE:-}" ]; then
     [ ! -e /www/luci-static/resources/view/radarsender/main_v0_1_2.js ]
     [ ! -e /usr/lib/radarsender/tcpdump ]
     [ "$system_capture" = "$(sha256sum /usr/sbin/tcpdump)" ]
-    echo 'PASS 0.1.2 to 0.1.6 upgrade: rollback restores old binary and removes new private tcpdump; successful upgrade preserves channel and system tcpdump'
+    echo 'PASS 0.1.2 to 0.1.7 upgrade: rollback restores old binary and removes new private tcpdump; successful upgrade preserves channel and system tcpdump'
 fi

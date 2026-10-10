@@ -2,7 +2,7 @@
 """Bounded MIPS little-endian runtime checks; QEMU user mode, no installation.
 
 Run on a disposable Linux CI runner with qemu-user and Python 3 installed:
-  sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.6/mipsel \
+  sudo -n python3 tests/mipsel-runtime.py --bundle dist/0.1.7/mipsel \
     --testbin artifacts/sender-mipsel-tests \
     --upload-testbin artifacts/radarupload-mipsel-tests
 
@@ -169,7 +169,7 @@ def main():
     parser.add_argument("--testbin", type=Path, required=True, help="GOOS=linux GOARCH=mipsle GOMIPS=softfloat internal/sender test binary")
     parser.add_argument("--upload-testbin", type=Path, required=True, help="same target internal/radarupload test binary")
     parser.add_argument("--qemu", default="qemu-mipsel")
-    parser.add_argument("--version", default="0.1.6")
+    parser.add_argument("--version", default="0.1.7")
     args = parser.parse_args()
     require(sys.platform.startswith("linux"), "Linux runner required")
     require(os.geteuid() == 0, "daemon privilege check requires root; run sudo -n python3 tests/mipsel-runtime.py ... (temporary paths only)")

@@ -94,6 +94,14 @@ func (s *captureSession) failure() error {
 	defer s.mu.Unlock()
 	return s.err
 }
+
+// A nil channel is intentional before a real capture starts (including unit
+// fixtures); callers may still select on task cancellation and configuration.
+func (s *captureSession) finished() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.done
+}
 func (s *captureSession) close() {
 	s.mu.Lock()
 	cancel, done := s.cancel, s.done
