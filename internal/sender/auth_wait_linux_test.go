@@ -106,7 +106,15 @@ done
 					if failure.onIngest && r.URL.Path != "/multi/channel/ingest" {
 						t.Error("unexpected stale authenticated route")
 					}
+					if failure.onIngest {
+						// Match the gateway/client early-rejection fixture: do not
+						// drain an endless chunked upload before sending its 401.
+						w.Header().Set("Connection", "close")
+					}
 					w.WriteHeader(failure.code)
+					if failure.onIngest {
+						w.(http.Flusher).Flush()
+					}
 					return
 				}
 				if r.Header.Get("Authorization") != "Bearer fixture-updated" {
